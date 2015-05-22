@@ -6,6 +6,8 @@
 
 module Crawler where
 
+import Control.Monad
+import Network.HTTP
 import Text.HTML.TagSoup
 
 import Data.Set (Set)
@@ -19,7 +21,7 @@ readURLFile = fmap lines . readFile
 
 -- read file containing list of words to ignore into Set structure
 readIgnoreFile :: FilePath -> IO (Set String)
-readIgnoreFile = fmap (fromList . lines) . readFile
+readIgnoreFile = fmap (Set.fromList . lines) . readFile
 
 -- request a page
 httpRequest :: URL -> IO String
@@ -29,7 +31,8 @@ httpRequest = simpleHTTP . getRequest >=> getResponseBody
 -- acceptable content is extracted by validTags,
 -- and filtered by validText
 getWords :: String -> [String]
-getWords = words . filter validText . validTags . parseTags
+getWords = filter validText . map innerText . validTags . parseTags
   where
-    validTags = sections (~== "<p>")
-    validText = undefined
+    validTags = sections (== TagOpen "p" [])
+    -- TODO
+    validText = \_ -> True
