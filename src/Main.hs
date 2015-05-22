@@ -1,6 +1,3 @@
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-
 module Main (main) where
 
 import Crawler
@@ -9,11 +6,18 @@ import Database
 import Control.Exception
 import Control.Monad
 import Database.Redis
-import Data.Typeable
+import System.Environment
+import System.Exit
 import System.IO
 
 main :: IO ()
-main = return ()
+main = do
+    args <- getArgs
+    let flag = head args
+    case flag of
+        "--crawl"  -> runCrawler
+        "--search" -> runSearch
+        _          -> usage
 
 runCrawler :: IO ()
 runCrawler = do
@@ -24,15 +28,11 @@ runCrawler = do
         url <- hGetLine urls
         catch (crawlPage url con) (crawlerHandler urls)
 
--- TODO
-data CrawlerException = CrawlerException deriving (Show, Typeable)
-instance Exception CrawlerException
-
-crawlerHandler :: Handle -> CrawlerException -> IO ()
-crawlerHandler urls exc = do
-    let err = show (exc :: CrawlerException)
-    hPutStr stderr $ "crawler exited with" ++ err
-    hClose urls
-
 runSearch :: IO ()
 runSearch = undefined
+
+usage :: IO ()
+usage = do
+    progName <- getProgName
+    putStrLn $ "usage: " ++ progName ++ " --crawl | --search"
+    exitWith $ ExitFailure 1

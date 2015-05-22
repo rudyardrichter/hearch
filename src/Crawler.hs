@@ -1,3 +1,6 @@
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
 -- module Crawler
 
 {-
@@ -6,19 +9,21 @@
 
 module Crawler where
 
-import Database
-
 import Control.Monad
+import Control.Exception
+import Data.Typeable
 import Database.Redis
 import Network.HTTP hiding (Connection)
 import System.IO
 import Text.HTML.TagSoup
 
-import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as BC
 
 import Data.Set (Set)
 import qualified Data.Set as Set
+
+
+----------------------------------------------------------------------
 
 type URL = String
 
@@ -55,8 +60,26 @@ getWords = filter validText . map innerText . validTags . parseTags
     -- TODO
     validText = \_ -> True
 
+----------------------------------------------------------------------
+
+-- exception instance to handle possible exceptions from the crawler
+data CrawlerException = RedisError
+                      | ServerError
+                      deriving (Show, Typeable)
+
+instance Exception CrawlerException
+
+crawlerHandler :: Handle -> CrawlerException -> IO ()
+crawlerHandler urls exc = do
+    let err = show (exc :: CrawlerException)
+    hPutStr stderr $ "crawler exited with" ++ err
+    hClose urls
+
 crawlPage :: URL -> Connection -> IO ()
 crawlPage url con = do
     result <- undefined
     e <- runRedis con $ sadd (BC.pack url) result
+    case e of
+        Left _  -> throwIO RedisError
+        Right r -> undefined
     return ()
