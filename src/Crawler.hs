@@ -6,18 +6,36 @@
 
 module Crawler where
 
+import Database
+
 import Control.Monad
-import Network.HTTP
+import Database.Redis
+import Network.HTTP hiding (Connection)
+import System.IO
 import Text.HTML.TagSoup
+
+import qualified Data.ByteString as B
+import qualified Data.ByteString.Char8 as BC
 
 import Data.Set (Set)
 import qualified Data.Set as Set
 
 type URL = String
 
+defaultURLFile :: FilePath
+defaultURLFile = "data/urls.txt"
+
 -- read file containing list of URLs to crawl
 readURLFile :: FilePath -> IO [URL]
 readURLFile = fmap lines . readFile
+
+-- write new URLs to the end of the URL file, given its open handle
+-- TODO: rewrite to process multiple URLs at once
+updateURLFile :: Handle -> String -> IO ()
+updateURLFile h url = do
+    hSeek h SeekFromEnd 0
+    hPutStr h url
+    hSeek h AbsoluteSeek 0
 
 -- read file containing list of words to ignore into Set structure
 readIgnoreFile :: FilePath -> IO (Set String)
@@ -36,3 +54,9 @@ getWords = filter validText . map innerText . validTags . parseTags
     validTags = sections (== TagOpen "p" [])
     -- TODO
     validText = \_ -> True
+
+crawlPage :: URL -> Connection -> IO ()
+crawlPage url con = do
+    result <- undefined
+    e <- runRedis con $ sadd (BC.pack url) result
+    return ()

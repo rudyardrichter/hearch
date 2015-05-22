@@ -1,0 +1,22 @@
+name:           hearch
+version:        1.0.0
+synopsis:       search engine in haskell
+description:    todo
+maintainer:     rudyardrichter@uchicago.edu
+category:       Web
+build-type:     Simple
+cabal-version:  >= 1.8
+
+extra-source-files:
+  README.md
+
+executable hearch
+  main-is:          Main.hs
+  hs-source-dirs:   src
+  build-depends:    base,
+                    hedis,
+                    HTTP,
+                    tagsoup,
+                    bytestring,
+                    containers
+  ghc-options:      -Wall
