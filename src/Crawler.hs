@@ -36,11 +36,10 @@ readURLFile = fmap lines . readFile
 
 -- write new URLs to the end of the URL file, given its open handle
 -- TODO: rewrite to process multiple URLs at once
-updateURLFile :: Handle -> String -> IO ()
-updateURLFile h url = do
-    hSeek h SeekFromEnd 0
-    hPutStr h url
-    hSeek h AbsoluteSeek 0
+updateURLFile :: FilePath -> String -> IO ()
+updateURLFile fp url = undefined
+  where
+    deleteFirstLine = undefined
 
 -- read file containing list of words to ignore into Set structure
 readIgnoreFile :: FilePath -> IO (Set String)
@@ -52,13 +51,17 @@ httpRequest = simpleHTTP . getRequest >=> getResponseBody
 
 -- get the text content of a page (which is a single string);
 -- acceptable content is extracted by validTags,
--- and filtered by validText
+-- harvested, and then broken into a list of single words
 getWords :: String -> [String]
-getWords = filter validText . map innerText . validTags . parseTags
+getWords = harvest . sections (== TagOpen "p" []) . parseTags
+
+-- harvester function for getWords
+harvest = words . head . map innerText
   where
-    validTags = sections (== TagOpen "p" [])
-    -- TODO
-    validText = \_ -> True
+    validText = undefined
+
+-- for debugging
+testPage = httpRequest "http://stackoverflow.com/questions/1012573/getting-started-with-haskell"
 
 ----------------------------------------------------------------------
 
@@ -69,17 +72,21 @@ data CrawlerException = RedisError
 
 instance Exception CrawlerException
 
+-- crawler exception handler
 crawlerHandler :: Handle -> CrawlerException -> IO ()
 crawlerHandler urls exc = do
     let err = show (exc :: CrawlerException)
     hPutStr stderr $ "crawler exited with" ++ err
     hClose urls
 
+-- take a URL of a page to crawl and a connection to Redis server;
+-- crawl the page and stash the results in the server
 crawlPage :: URL -> Connection -> IO ()
 crawlPage url con = do
     result <- undefined
     e <- runRedis con $ sadd (BC.pack url) result
     case e of
-        Left _  -> throwIO RedisError
-        Right r -> undefined
-    return ()
+        Left l  -> do
+            hPutStr stderr $ "redis replied with " ++ (show l)
+            throwIO RedisError
+        Right r -> return ()
