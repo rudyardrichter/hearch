@@ -11,6 +11,7 @@ module Crawler where
 
 import Control.Monad
 import Control.Exception
+import Data.Char
 import Data.Typeable
 import Database.Redis
 import Network.HTTP hiding (Connection)
@@ -21,7 +22,6 @@ import qualified Data.ByteString.Char8 as BC
 
 import Data.Set (Set)
 import qualified Data.Set as Set
-
 
 ----------------------------------------------------------------------
 
@@ -49,19 +49,22 @@ readIgnoreFile = fmap (Set.fromList . lines) . readFile
 httpRequest :: URL -> IO String
 httpRequest = simpleHTTP . getRequest >=> getResponseBody
 
--- get the text content of a page (which is a single string);
--- acceptable content is extracted by validTags,
--- harvested, and then broken into a list of single words
-getWords :: String -> [String]
-getWords = harvest . sections (== TagOpen "p" []) . parseTags
-
--- harvester function for getWords
-harvest = words . head . map innerText
+-- get the text content of a page;
+-- acceptable content is extracted by validTags and harvested
+getBody :: String -> [String]
+getBody = harvest . sections (~== TagOpen "p" []) . parseTags
   where
-    validText = undefined
+    harvest  = map niceText . concatMap getText
+    getText  = words . fromTagText . head . filter isTagText
+    niceText = filter (\c -> isAlpha c || isSpace c)
+
+getLinks :: String -> [String]
+getLinks = undefined
 
 -- for debugging
 testPage = httpRequest "http://stackoverflow.com/questions/1012573/getting-started-with-haskell"
+
+testCrawl = fmap getBody testPage
 
 ----------------------------------------------------------------------
 
