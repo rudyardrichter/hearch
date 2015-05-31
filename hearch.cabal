@@ -14,15 +14,14 @@ extra-source-files:
 
 executable hearch
   main-is:          Main.hs
-  hs-source-dirs:   src
+  hs-source-dirs:   src/exc
   build-depends:    base >= 4.7 && < 4.8,
-                    crawl,
-                    search
+                    hearch
   default-language: Haskell2010
   ghc-options:      -Wall
 
 library
-  hs-source-dirs:   src
+  hs-source-dirs:   src/lib
   exposed-modules:  Crawler,
                     Database,
                     Search,
