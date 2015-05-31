@@ -52,13 +52,13 @@ httpRequest = simpleHTTP . getRequest >=> getResponseBody
 sectionTag :: String -> [Tag String] -> [[Tag String]]
 sectionTag tag = sections (~== TagOpen tag [])
 
+-- get the title of a page
 getTitle :: [Tag String] -> String
 getTitle = unwords
          . map (fromTagText . head . filter isTagText)
          . sectionTag "title"
 
--- get the text content of a page;
--- acceptable content is extracted by validTags and harvested
+-- get the text content of a page
 getBody :: [Tag String] -> [String]
 getBody = harvest . sectionTag "p"
   where
@@ -66,22 +66,16 @@ getBody = harvest . sectionTag "p"
     getText  = words . fromTagText . head . filter isTagText
     niceText = filter (\c -> isAlpha c || isSpace c)
 
+-- get the list of all links on a page
 getLinks :: [Tag String] -> [String]
 getLinks = map getHref . sectionTag "a"
   where
     getHref = fromAttrib "href" . head . filter isTagOpen
 
-{-
- - Possibly better as:
-
-data Page = Data String [String] [String]
-
- - ?
- -}
-
 -- type Page = (Title, Words, Links)
 type Page = (String, [String], [String])
 
+-- unified page get function
 getPage :: String -> Page
 getPage page =
     let tags = parseTags page
