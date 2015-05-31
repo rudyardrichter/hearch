@@ -49,22 +49,50 @@ readIgnoreFile = fmap (Set.fromList . lines) . readFile
 httpRequest :: URL -> IO String
 httpRequest = simpleHTTP . getRequest >=> getResponseBody
 
+sectionTag :: String -> [Tag String] -> [[Tag String]]
+sectionTag tag = sections (~== TagOpen tag [])
+
+getTitle :: [Tag String] -> String
+getTitle = unwords
+         . map (fromTagText . head . filter isTagText)
+         . sectionTag "title"
+
 -- get the text content of a page;
 -- acceptable content is extracted by validTags and harvested
-getBody :: String -> [String]
-getBody = harvest . sections (~== TagOpen "p" []) . parseTags
+getBody :: [Tag String] -> [String]
+getBody = harvest . sectionTag "p"
   where
     harvest  = map niceText . concatMap getText
     getText  = words . fromTagText . head . filter isTagText
     niceText = filter (\c -> isAlpha c || isSpace c)
 
-getLinks :: String -> [String]
-getLinks = undefined
+getLinks :: [Tag String] -> [String]
+getLinks = map getHref . sectionTag "a"
+  where
+    getHref = fromAttrib "href" . head . filter isTagOpen
+
+{-
+ - Possibly better as:
+
+data Page = Data String [String] [String]
+
+ - ?
+ -}
+
+-- type Page = (Title, Words, Links)
+type Page = (String, [String], [String])
+
+getPage :: String -> Page
+getPage page =
+    let tags = parseTags page
+    in (getTitle tags, getBody tags, getLinks tags)
+
+----------------------------------------------------------------------
 
 -- for debugging
 testPage = httpRequest "http://stackoverflow.com/questions/1012573/getting-started-with-haskell"
 
-testCrawl = fmap getBody testPage
+testGetPage = fmap getPage testPage
 
 ----------------------------------------------------------------------
 
