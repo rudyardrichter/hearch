@@ -20,6 +20,16 @@ executable hearch
   default-language: Haskell2010
   ghc-options:      -Wall
 
+test-suite test-hearch
+  hs-source-dirs:   test
+  main-is:          TestHearch.hs
+  type:             exitcode-stdio-1.0
+  build-depends:    base >= 4.7 && < 4.8,
+                    hspec,
+                    hearch
+  default-language: Haskell2010
+  ghc-options:      -Wall -Werror
+
 library
   hs-source-dirs:   src/lib
   exposed-modules:  Crawler,
