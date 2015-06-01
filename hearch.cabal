@@ -11,6 +11,7 @@ cabal-version:  >= 1.10
 
 extra-source-files:
   README.md
+  .gitignore
 
 executable hearch
   main-is:          Main.hs

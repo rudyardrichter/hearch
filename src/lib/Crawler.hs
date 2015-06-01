@@ -1,11 +1,21 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
--- module Crawler
-
-{-
- - TODO: write module description
- -}
+-----------------------------------------------------------------------------
+---- |
+---- Module      :  Crawler
+---- Copyright   :  (c) Rudyard Richter 2015
+---- License     :  MIT
+----
+---- Maintainer  :  rudyardrichter@uchicago.edu
+---- Stability   :  development
+---- Portability :  non-portable
+----
+---- A web crawler to gather word counts from pages, store them in the
+---- database, and automatically traverse the pages at other hyperlinks
+---- gathered from each page.
+----
+-----------------------------------------------------------------------------
 
 module Crawler where
 
@@ -23,7 +33,7 @@ import qualified Data.ByteString.Char8 as BC
 import Data.Set (Set)
 import qualified Data.Set as Set
 
-----------------------------------------------------------------------
+-----------------------------------------------------------------------------
 
 type URL = String
 
@@ -81,14 +91,14 @@ getPage page =
     let tags = parseTags page
     in (getTitle tags, getBody tags, getLinks tags)
 
-----------------------------------------------------------------------
+-----------------------------------------------------------------------------
 
 -- for debugging
 testPage = httpRequest "http://stackoverflow.com/questions/1012573/getting-started-with-haskell"
 
 testGetPage = fmap getPage testPage
 
-----------------------------------------------------------------------
+-----------------------------------------------------------------------------
 
 -- exception instance to handle possible exceptions from the crawler
 data CrawlerException = RedisError
