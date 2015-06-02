@@ -17,7 +17,9 @@
 ----
 -----------------------------------------------------------------------------
 
-module Crawler where
+module Crawler (runCrawler) where
+
+import Database
 
 import Control.Monad
 import Control.Exception
@@ -125,3 +127,12 @@ crawlPage url con = do
             hPutStr stderr $ "redis replied with " ++ (show l)
             throwIO RedisError
         Right r -> return ()
+
+runCrawler :: IO ()
+runCrawler = do
+    urls <- openFile defaultURLFile ReadWriteMode
+    con <- connect databaseInfo
+    -- TODO: delete line from file when read
+    forever $ do
+        url <- hGetLine urls
+        catch (crawlPage url con) (crawlerHandler urls)

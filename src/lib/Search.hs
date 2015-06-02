@@ -13,4 +13,7 @@
 ----
 -----------------------------------------------------------------------------
 
-module Search where
+module Search (runSearch) where
+
+runSearch :: IO ()
+runSearch = undefined
