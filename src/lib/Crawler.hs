@@ -98,7 +98,7 @@ getPage page =
 
 -----------------------------------------------------------------------------
 
--- for debugging
+-- for testing
 testPage = httpRequest "http://stackoverflow.com/questions/1012573/getting-started-with-haskell"
 
 testGetPage = fmap getPage testPage
@@ -120,6 +120,14 @@ makeWordFreqMap = loop Map.empty
             then Map.adjust incrEntry word freqMap
             else Map.insert word (page, 1) freqMap
     incrEntry (pg, cnt) = (pg, succ cnt)
+
+-----------------------------------------------------------------------------
+
+-- for testing:
+-- should output the word frequencies for the test page
+testWordFreq = do
+    (title, ws, links) <- testGetPage
+    print $ makeWordFreqMap title ws
 
 -----------------------------------------------------------------------------
 
@@ -151,6 +159,7 @@ runCrawler = do
     forever $ do
         url <- hGetLine urlsHandle
         -- TODO: delete line from file after reading
+        -- TODO: add url to data/crawled.txt
         catch (crawlPage url) (crawlerHandler urlsHandle)
 
 redisStore :: Page -> IO ()
@@ -169,7 +178,3 @@ hPeek hdl = do
     char <- hGetChar hdl
     hPutChar hdl char
     return char
-
-
--- e <- runRedis con $ sadd (BC.pack url) result
-
