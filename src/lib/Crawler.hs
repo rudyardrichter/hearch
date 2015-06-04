@@ -131,6 +131,9 @@ testWordFreq = do
 
 -----------------------------------------------------------------------------
 
+defaultCrawledFile :: String
+defaultCrawledFile = "data/crawled.txt"
+
 -- exception instance to handle possible exceptions from the crawler
 data CrawlerException = RedisError
                       | ServerError
@@ -153,14 +156,23 @@ crawlPage url = do
     e <- redisStore ("test", ["test"], ["test"])
     return ()
 
+deleteLine :: Handle -> IO ()
+deleteLine hdl = loop
+  where
+    loop = do
+        char <- hLookAhead hdl
+        hPutChar hdl '\0'
+        unless (char == '\n') loop
+
 runCrawler :: IO ()
 runCrawler = do
     urlsHandle <- openFile defaultURLFile ReadWriteMode
+    crawledHandle <- openFile defaultCrawledFile AppendMode
     forever $ do
         url <- hGetLine urlsHandle
-        -- TODO: delete line from file after reading
-        -- TODO: add url to data/crawled.txt
         catch (crawlPage url) (crawlerHandler urlsHandle)
+        deleteLine hdl
+        hPutStrLn url crawledHandle
 
 redisStore :: Page -> IO ()
 redisStore (title, ws, links) = do
@@ -172,9 +184,3 @@ redisStore (title, ws, links) = do
             hPutStr stderr $ "redis replied with " ++ (show l)
             throwIO RedisError
         Right r -> return ()
-
-hPeek :: Handle -> IO Char
-hPeek hdl = do
-    char <- hGetChar hdl
-    hPutChar hdl char
-    return char
