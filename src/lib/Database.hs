@@ -17,5 +17,14 @@ module Database where
 
 import Database.Redis
 
+import qualified Data.ByteString.Char8 as B
+
 databaseInfo :: ConnectInfo
 databaseInfo = defaultConnectInfo
+
+redisStore :: (String, [String], [String]) -> IO (Either Reply B.ByteString)
+redisStore (title, ws, links) = do
+    con <- connect databaseInfo
+    e <- runRedis con $ do
+        echo . B.pack $ "test"
+    return e

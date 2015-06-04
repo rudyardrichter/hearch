@@ -40,6 +40,8 @@ import qualified Data.Set as Set
 
 -----------------------------------------------------------------------------
 
+-- This section contains functions for extracting data from webpages.
+
 type URL = String
 
 defaultURLFile :: FilePath
@@ -48,13 +50,6 @@ defaultURLFile = "data/urls.txt"
 -- read file containing list of URLs to crawl
 readURLFile :: FilePath -> IO [URL]
 readURLFile = fmap lines . readFile
-
--- write new URLs to the end of the URL file, given its open handle
--- TODO: rewrite to process multiple URLs at once
-updateURLFile :: FilePath -> String -> IO ()
-updateURLFile fp url = undefined
-  where
-    deleteFirstLine = undefined
 
 -- read file containing list of words to ignore into Set structure
 readIgnoreFile :: FilePath -> IO (Set String)
@@ -87,23 +82,25 @@ getLinks = map getHref . sectionTag "a"
   where
     getHref = fromAttrib "href" . head . filter isTagOpen
 
+-----------------------------------------------------------------------------
+
+-- This section contains functions for manipulating data from webpages.
+
 -- type Page = (Title, Words, Links)
 type Page = (String, [String], [String])
 
 -- unified page get function
-getPage :: String -> Page
-getPage page =
+getPage :: URL -> IO Page
+getPage url = do
+    page <- httpRequest url
     let tags = parseTags page
-    in (getTitle tags, getBody tags, getLinks tags)
+    return (getTitle tags, getBody tags, getLinks tags)
 
------------------------------------------------------------------------------
 
 -- for testing
-testPage = httpRequest "http://stackoverflow.com/questions/1012573/getting-started-with-haskell"
+testPage = "http://stackoverflow.com/questions/1012573/getting-started-with-haskell"
 
-testGetPage = fmap getPage testPage
-
------------------------------------------------------------------------------
+testGetPage = getPage testPage
 
 -- | Given a URL and the list of words on that page, produce a map from the
 -- words to duples containing the URL and the frequency count.
@@ -121,8 +118,6 @@ makeWordFreqMap = loop Map.empty
             else Map.insert word (page, 1) freqMap
     incrEntry (pg, cnt) = (pg, succ cnt)
 
------------------------------------------------------------------------------
-
 -- for testing:
 -- should output the word frequencies for the test page
 testWordFreq = do
@@ -130,6 +125,8 @@ testWordFreq = do
     print $ makeWordFreqMap title ws
 
 -----------------------------------------------------------------------------
+
+-- This section contains functions for running the crawler.
 
 defaultCrawledFile :: String
 defaultCrawledFile = "data/crawled.txt"
@@ -148,12 +145,13 @@ crawlerHandler urlsHandle exc = do
     hPutStr stderr $ "crawler exited with" ++ err
     hClose urlsHandle
 
--- take a URL of a page to crawl and a connection to Redis server;
+-- take a URL of a page to crawl;
 -- crawl the page and stash the results in the server
 crawlPage :: URL -> IO ()
 crawlPage url = do
-    result <- undefined
-    e <- redisStore ("test", ["test"], ["test"])
+    -- obtain page result
+    page <- getPage url
+    -- store page result in database
     return ()
 
 deleteLine :: Handle -> IO ()
@@ -164,6 +162,16 @@ deleteLine hdl = loop
         hPutChar hdl '\0'
         unless (char == '\n') loop
 
+
+{-
+ - result from redis
+    case e of
+        Left l  -> do
+            hPutStr stderr $ "redis replied with " ++ (show l)
+            throwIO RedisError
+        Right r -> return ()
+ -}
+
 runCrawler :: IO ()
 runCrawler = do
     urlsHandle <- openFile defaultURLFile ReadWriteMode
@@ -171,16 +179,5 @@ runCrawler = do
     forever $ do
         url <- hGetLine urlsHandle
         catch (crawlPage url) (crawlerHandler urlsHandle)
-        deleteLine hdl
-        hPutStrLn url crawledHandle
-
-redisStore :: Page -> IO ()
-redisStore (title, ws, links) = do
-    con <- connect databaseInfo
-    e <- runRedis con $ do
-        echo . BC.pack $ "test"
-    case e of
-        Left l  -> do
-            hPutStr stderr $ "redis replied with " ++ (show l)
-            throwIO RedisError
-        Right r -> return ()
+        deleteLine urlsHandle
+        hPutStrLn crawledHandle url
