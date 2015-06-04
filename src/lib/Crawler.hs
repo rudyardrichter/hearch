@@ -32,6 +32,9 @@ import Text.HTML.TagSoup
 
 import qualified Data.ByteString.Char8 as BC
 
+import Data.Map (Map)
+import qualified Data.Map as Map
+
 import Data.Set (Set)
 import qualified Data.Set as Set
 
@@ -102,6 +105,24 @@ testGetPage = fmap getPage testPage
 
 -----------------------------------------------------------------------------
 
+-- | Given a URL and the list of words on that page, produce a map from the
+-- words to duples containing the URL and the frequency count.
+makeWordFreqMap :: String     -- ^ URL of the page
+                  -> [String]   -- ^ raw word content of the page
+                  -> Map String (String, Int)
+                                -- ^ a map of words to a (page, frequency) duple
+makeWordFreqMap = loop Map.empty
+  where
+    loop freqMap _ [] = freqMap
+    loop freqMap page (w:ws) = loop (wordEntry page w freqMap) page ws
+    wordEntry page word freqMap =
+        if Map.member word freqMap
+            then Map.adjust incrEntry word freqMap
+            else Map.insert word (page, 1) freqMap
+    incrEntry (pg, cnt) = (pg, succ cnt)
+
+-----------------------------------------------------------------------------
+
 -- exception instance to handle possible exceptions from the crawler
 data CrawlerException = RedisError
                       | ServerError
@@ -111,28 +132,44 @@ instance Exception CrawlerException
 
 -- crawler exception handler
 crawlerHandler :: Handle -> CrawlerException -> IO ()
-crawlerHandler urls exc = do
+crawlerHandler urlsHandle exc = do
     let err = show (exc :: CrawlerException)
     hPutStr stderr $ "crawler exited with" ++ err
-    hClose urls
+    hClose urlsHandle
 
 -- take a URL of a page to crawl and a connection to Redis server;
 -- crawl the page and stash the results in the server
-crawlPage :: URL -> Connection -> IO ()
-crawlPage url con = do
+crawlPage :: URL -> IO ()
+crawlPage url = do
     result <- undefined
-    e <- runRedis con $ sadd (BC.pack url) result
+    e <- redisStore ("test", ["test"], ["test"])
+    return ()
+
+runCrawler :: IO ()
+runCrawler = do
+    urlsHandle <- openFile defaultURLFile ReadWriteMode
+    forever $ do
+        url <- hGetLine urlsHandle
+        -- TODO: delete line from file after reading
+        catch (crawlPage url) (crawlerHandler urlsHandle)
+
+redisStore :: Page -> IO ()
+redisStore (title, ws, links) = do
+    con <- connect databaseInfo
+    e <- runRedis con $ do
+        echo . BC.pack $ "test"
     case e of
         Left l  -> do
             hPutStr stderr $ "redis replied with " ++ (show l)
             throwIO RedisError
         Right r -> return ()
 
-runCrawler :: IO ()
-runCrawler = do
-    urls <- openFile defaultURLFile ReadWriteMode
-    con <- connect databaseInfo
-    -- TODO: delete line from file when read
-    forever $ do
-        url <- hGetLine urls
-        catch (crawlPage url con) (crawlerHandler urls)
+hPeek :: Handle -> IO Char
+hPeek hdl = do
+    char <- hGetChar hdl
+    hPutChar hdl char
+    return char
+
+
+-- e <- runRedis con $ sadd (BC.pack url) result
+

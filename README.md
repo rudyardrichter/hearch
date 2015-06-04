@@ -1,8 +1,8 @@
 A primitive search engine written in Haskell.
 
 TODO
-    * complete haddock documentation
-    * figure out how to package data into redis
+  * complete haddock documentation
+  * figure out how to package data into redis
 
 ## Modules
 
