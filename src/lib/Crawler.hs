@@ -25,12 +25,9 @@ import Control.Monad
 import Control.Exception
 import Data.Char
 import Data.Typeable
-import Database.Redis
 import Network.HTTP hiding (Connection)
 import System.IO
 import Text.HTML.TagSoup
-
-import qualified Data.ByteString.Char8 as BC
 
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -84,7 +81,8 @@ getLinks = map getHref . sectionTag "a"
 
 -----------------------------------------------------------------------------
 
--- This section contains functions for manipulating data from webpages.
+-- This section contains functions for manipulating data from webpages, and
+-- ultimately generating a Page result from a URL.
 
 -- type Page = (Title, Words, Links)
 type Page = (String, [String], [String])
@@ -105,9 +103,9 @@ testGetPage = getPage testPage
 -- | Given a URL and the list of words on that page, produce a map from the
 -- words to duples containing the URL and the frequency count.
 makeWordFreqMap :: String     -- ^ URL of the page
-                  -> [String]   -- ^ raw word content of the page
-                  -> Map String (String, Int)
-                                -- ^ a map of words to a (page, frequency) duple
+                -> [String]   -- ^ raw word content of the page
+                -> Map String (String, Int)
+                              -- ^ a map of words to a (page, frequency) duple
 makeWordFreqMap = loop Map.empty
   where
     loop freqMap _ [] = freqMap
@@ -139,20 +137,26 @@ data CrawlerException = RedisError
 instance Exception CrawlerException
 
 -- crawler exception handler
-crawlerHandler :: Handle -> CrawlerException -> IO ()
+-- kludgy type signature to allow crawlPage to return a [String]
+crawlerHandler :: Handle -> CrawlerException -> IO [String]
 crawlerHandler urlsHandle exc = do
     let err = show (exc :: CrawlerException)
     hPutStr stderr $ "crawler exited with" ++ err
     hClose urlsHandle
+    return [""]
 
 -- take a URL of a page to crawl;
--- crawl the page and stash the results in the server
-crawlPage :: URL -> IO ()
+-- crawl the page and stash the results in the server.
+-- returns a list of new hyperlinks from that page.
+crawlPage :: URL -> IO [String]
 crawlPage url = do
     -- obtain page result
-    page <- getPage url
-    -- store page result in database
-    return ()
+    (title, words, links) <- getPage url
+    -- store page into word/page-frequency map
+    let freqMap = makeWordFreqMap url words
+    -- store result in database
+    storeFreqMap freqMap
+    return links
 
 deleteLine :: Handle -> IO ()
 deleteLine hdl = loop
@@ -162,22 +166,12 @@ deleteLine hdl = loop
         hPutChar hdl '\0'
         unless (char == '\n') loop
 
-
-{-
- - result from redis
-    case e of
-        Left l  -> do
-            hPutStr stderr $ "redis replied with " ++ (show l)
-            throwIO RedisError
-        Right r -> return ()
- -}
-
 runCrawler :: IO ()
 runCrawler = do
     urlsHandle <- openFile defaultURLFile ReadWriteMode
     crawledHandle <- openFile defaultCrawledFile AppendMode
     forever $ do
         url <- hGetLine urlsHandle
-        catch (crawlPage url) (crawlerHandler urlsHandle)
+        newLinks <- catch (crawlPage url) (crawlerHandler urlsHandle)
         deleteLine urlsHandle
         hPutStrLn crawledHandle url
