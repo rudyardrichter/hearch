@@ -10,8 +10,7 @@
 ---- Stability   :  development
 ---- Portability :  non-portable
 ----
----- Provides functions to use for interfacing with the Redis database
----- (via hedis, the Haskell Redis client).
+---- Provides functions to use for interfacing with the database
 ----
 -----------------------------------------------------------------------------
 

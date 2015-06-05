@@ -41,31 +41,36 @@ import qualified Data.Set as Set
 
 type URL = String
 
+-- Default filepath for the list of URLs to be crawled.
 defaultURLFile :: FilePath
 defaultURLFile = "data/urls.txt"
 
--- read file containing list of URLs to crawl
-readURLFile :: FilePath -> IO [URL]
-readURLFile = fmap lines . readFile
+-- Default filepath for the list of words to ignore.
+defaultIgnoreFile :: FilePath
+defaultIgnoreFile = "data/ignore.txt"
 
--- read file containing list of words to ignore into Set structure
+-- Read the ignore file into a Set structure.
 readIgnoreFile :: FilePath -> IO (Set String)
 readIgnoreFile = fmap (Set.fromList . lines) . readFile
 
--- request a page
+-- Request the HTML content of a page.
 httpRequest :: URL -> IO String
 httpRequest = simpleHTTP . getRequest >=> getResponseBody
 
-sectionTag :: String -> [Tag String] -> [[Tag String]]
+-- Extract the sections beginning with a given tag from a tag structure.
+sectionTag :: String          -- ^ the tag to look for
+           -> [Tag String]    -- ^ the parsed tagsoup
+           -> [[Tag String]]  -- ^ list of tag sections beginning with the
+                              -- desired tag
 sectionTag tag = sections (~== TagOpen tag [])
 
--- get the title of a page
+-- Get the title of a page.
 getTitle :: [Tag String] -> String
 getTitle = unwords
          . map (fromTagText . head . filter isTagText)
          . sectionTag "title"
 
--- get the text content of a page
+-- Get the text content of a page.
 getBody :: [Tag String] -> [String]
 getBody = harvest . sectionTag "p"
   where
@@ -73,7 +78,7 @@ getBody = harvest . sectionTag "p"
     getText  = words . fromTagText . head . filter isTagText
     niceText = filter (\c -> isAlpha c || isSpace c)
 
--- get the list of all links on a page
+-- Get the list of all links on a page.
 getLinks :: [Tag String] -> [String]
 getLinks = map getHref . sectionTag "a"
   where
@@ -88,10 +93,10 @@ getLinks = map getHref . sectionTag "a"
 type Page = (String, [String], [String])
 
 -- unified page get function
-getPage :: URL -> IO Page
+getPage :: URL      -- ^ the URL of the page to retrieve
+        -> IO Page  -- ^ the Page result
 getPage url = do
-    page <- httpRequest url
-    let tags = parseTags page
+    tags <- httpRequest url >>= return . parseTags
     return (getTitle tags, getBody tags, getLinks tags)
 
 
@@ -104,6 +109,7 @@ testGetPage = getPage testPage
 -- words to duples containing the URL and the frequency count.
 makeWordFreqMap :: String     -- ^ URL of the page
                 -> [String]   -- ^ raw word content of the page
+                              -- (along with weighted title---see crawlPage)
                 -> Map String (String, Int)
                               -- ^ a map of words to a (page, frequency) duple
 makeWordFreqMap = loop Map.empty
@@ -126,6 +132,7 @@ testWordFreq = do
 
 -- This section contains functions for running the crawler.
 
+-- Default filepath for the file of URLs which have been crawled already.
 defaultCrawledFile :: String
 defaultCrawledFile = "data/crawled.txt"
 
@@ -136,28 +143,54 @@ data CrawlerException = RedisError
 
 instance Exception CrawlerException
 
--- crawler exception handler
--- kludgy type signature to allow crawlPage to return a [String]
-crawlerHandler :: Handle -> CrawlerException -> IO [String]
-crawlerHandler urlsHandle exc = do
+-- | Exception handler for exiting from the crawler. Takes the handles from
+-- urls.txt and crawled.txt to make sure they are closed.
+crawlerHandler :: Handle           -- ^ handle for urls.txt
+               -> Handle           -- ^ handle for crawled.txt
+               -> CrawlerException -- ^ the exception to catch
+               -> IO [String]      -- ^ empty [String], to match type of crawlPage
+crawlerHandler urlsHandle crawledHandle exc = do
     let err = show (exc :: CrawlerException)
     hPutStr stderr $ "crawler exited with" ++ err
     hClose urlsHandle
+    hClose crawledHandle
     return [""]
 
--- take a URL of a page to crawl;
--- crawl the page and stash the results in the server.
--- returns a list of new hyperlinks from that page.
-crawlPage :: URL -> IO [String]
-crawlPage url = do
+-- | Crawl a page and stash the results in the server.
+crawlPage :: URL          -- ^ the URL of a page to crawl
+          -> Set String   -- ^ a set of words to ignore
+          -> IO [String]  -- ^ hyperlinks found on that page
+crawlPage url ignoreWords = do
     -- obtain page result
-    (title, words, links) <- getPage url
+    (title, ws, links) <- getPage url
+    -- (note: Stack Overflow-specific)
+    -- discard "Stack Overflow" from title text
+    let titleWords = takeWhile (/= "Stack") $ words title
+    -- put the title words in 3 times to give them more weight
+    let weightedWords = filter (flip Set.notMember ignoreWords)
+                      $ (concat $ replicate 3 titleWords) ++ ws
     -- store page into word/page-frequency map
-    let freqMap = makeWordFreqMap url words
-    -- store result in database
+    let freqMap = makeWordFreqMap url weightedWords
+    -- call storeFreqMap from Database to store the result
     storeFreqMap freqMap
     return links
 
+-- | The main routine for the crawler, exported to Main.
+runCrawler :: IO ()
+runCrawler = do
+    ignoreWordsSet <- readIgnoreFile defaultIgnoreFile
+    crawledHandle <- openFile defaultCrawledFile AppendMode
+    forever $ do
+        urlsHandle <- openFile defaultURLFile ReadWriteMode
+        url <- hGetLine urlsHandle
+        newLinks <- catch (crawlPage url ignoreWordsSet)
+                          (crawlerHandler urlsHandle crawledHandle)
+        deleteLine urlsHandle
+        hClose urlsHandle
+        mapM_ (appendFile defaultURLFile) newLinks
+        hPutStrLn crawledHandle url
+
+-- Helper function for runCrawler. Deletes the first line of an open file.
 deleteLine :: Handle -> IO ()
 deleteLine hdl = loop
   where
@@ -165,13 +198,3 @@ deleteLine hdl = loop
         char <- hLookAhead hdl
         hPutChar hdl '\0'
         unless (char == '\n') loop
-
-runCrawler :: IO ()
-runCrawler = do
-    urlsHandle <- openFile defaultURLFile ReadWriteMode
-    crawledHandle <- openFile defaultCrawledFile AppendMode
-    forever $ do
-        url <- hGetLine urlsHandle
-        newLinks <- catch (crawlPage url) (crawlerHandler urlsHandle)
-        deleteLine urlsHandle
-        hPutStrLn crawledHandle url

@@ -1,12 +1,14 @@
 A primitive search engine written in Haskell.
 
 TODO
+  * limit crawling to single domain
   * complete haddock documentation
   * ~~figure out how to package data into redis~~
-  * integrate `setupDB.bash` into `cabal` setup
   * implement word ignore in crawler's processing functions
 
 ## Usage
+
+Run `setupDB.bash` once before doing anything to create the SQLite database.
 
     $ cabal install --only-dependencies --enable tests
     $ cabal configure --enable-tests
