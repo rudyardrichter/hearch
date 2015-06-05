@@ -42,29 +42,3 @@ data RetrieveEntry = RetrieveEntry String String Int
 
 getQueryFormat :: Query
 getQueryFormat = undefined
-
-{-
- - scrapped code from attempt with redis
-import Database.Redis
-
-import qualified Data.ByteString.Char8 as B
-
-databaseInfo :: ConnectInfo
-databaseInfo = defaultConnectInfo
-
-redisStore :: (String, [String], [String]) -> IO (Either Reply B.ByteString)
-redisStore (title, ws, links) = do
-    con <- connect databaseInfo
-    e <- runRedis con $ do
-        echo . B.pack $ "test"
-    return e
- -}
-
-{-
- - other junk from redis ideas
-    case e of
-        Left l  -> do
-            hPutStr stderr $ "redis replied with " ++ (show l)
-            throwIO RedisError
-        Right r -> return ()
- -}
