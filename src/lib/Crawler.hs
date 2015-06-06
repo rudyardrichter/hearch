@@ -111,7 +111,7 @@ makeWordFreqMap :: String     -- ^ URL of the page
                 -> [String]   -- ^ raw word content of the page
                               -- (along with weighted title---see crawlPage)
                 -> Map String (String, Int)
-                              -- ^ a map of words to a (page, frequency) duple
+                              -- ^ map of words to a (page, frequency) duple
 makeWordFreqMap = loop Map.empty
   where
     loop freqMap _ [] = freqMap
@@ -148,7 +148,8 @@ instance Exception CrawlerException
 crawlerHandler :: Handle           -- ^ handle for urls.txt
                -> Handle           -- ^ handle for crawled.txt
                -> CrawlerException -- ^ the exception to catch
-               -> IO [String]      -- ^ empty [String], to match type of crawlPage
+               -> IO [String]      -- ^ empty [String], to match return type
+                                   -- of crawlPage
 crawlerHandler urlsHandle crawledHandle exc = do
     let err = show (exc :: CrawlerException)
     hPutStr stderr $ "crawler exited with" ++ err
@@ -178,17 +179,27 @@ crawlPage url ignoreWords = do
 -- | The main routine for the crawler, exported to Main.
 runCrawler :: IO ()
 runCrawler = do
+    -- load the list of ignored words and open the crawled links file
     ignoreWordsSet <- readIgnoreFile defaultIgnoreFile
     crawledHandle <- openFile defaultCrawledFile AppendMode
     forever $ do
+        -- open the URL file and get a new URL to crawl
         urlsHandle <- openFile defaultURLFile ReadWriteMode
         url <- hGetLine urlsHandle
-        newLinks <- catch (crawlPage url ignoreWordsSet)
+        -- crawl the page and collect the links from the page
+        allLinks <- catch (crawlPage url ignoreWordsSet)
                           (crawlerHandler urlsHandle crawledHandle)
+        -- filter for links which go to other questions,
+        -- and format the links so they can be used
+        let newLinks = formatLinks . filter correctDomain $ allLinks
+        -- remove the URL we just crawled from the URL file,
+        -- and write it to the file of links which have been crawled
         deleteLine urlsHandle
-        hClose urlsHandle
-        mapM_ (appendFile defaultURLFile) newLinks
         hPutStrLn crawledHandle url
+        -- close the URL file handle
+        hClose urlsHandle
+        -- append all the new URLs to the URL file
+        mapM_ (appendFile defaultURLFile) newLinks
 
 -- Helper function for runCrawler. Deletes the first line of an open file.
 deleteLine :: Handle -> IO ()
@@ -198,3 +209,19 @@ deleteLine hdl = loop
         char <- hLookAhead hdl
         hPutChar hdl '\0'
         unless (char == '\n') loop
+
+-- Helper function for runCrawler. Checks if a URL goes to the desired
+-- domain (stackoverflow.com/questions). These URLs will all be linked from
+-- the current page as beginning with "/q" or "/questions".
+correctDomain :: String -> Bool
+correctDomain = beginsWith "/q"
+  where
+    beginsWith [] _ = True
+    beginsWith _ [] = False
+    beginsWith (x:xs) (y:ys) = x == y && beginsWith xs ys
+
+-- Helper function for runCrawler. Takes the links which were filtered with
+-- correctDomain and formats them as usable URLs (prepending
+-- "http://stackoverflow.com").
+formatLinks :: [String] -> [String]
+formatLinks = map ("http://stackoverflow.com" ++)

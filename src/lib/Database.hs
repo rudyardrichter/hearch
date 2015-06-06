@@ -26,7 +26,8 @@ databaseFile = "data/words.db"
 storeQueryFormat :: Query
 storeQueryFormat = "INSERT INTO words (word, page, freq) VALUES (?, ?, ?)"
 
-storeFreqMap  :: Map String (String, Int) -> IO ()
+-- | Store a map of word/page-frequency pairs to the table.
+storeFreqMap :: Map String (String, Int) -> IO ()
 storeFreqMap freqMap = do
     con <- open databaseFile
     -- TODO: freqMap -> (word, page, freq)
@@ -37,7 +38,21 @@ storeFreqMap freqMap = do
     execute con storeQueryFormat (word, page, freq)
     close con
 
-data RetrieveEntry = RetrieveEntry String String Int
+-- The structure of the FromRow result which will be extracted from the table.
+type GetEntry = (String, String, Int)
 
+-- GetEntry will have a built-in FromRow instance in Database.SQLite.Simple,
+-- since it is just a normal triple, so it is not required that we build a
+-- new FromRow instance for it.
+
+-- Format string for the getFreqMap query.
 getQueryFormat :: Query
-getQueryFormat = undefined
+getQueryFormat = "SELECT * FROM words WHERE word = ?"
+
+-- | Query to retrieve all rows containing a given word.
+getFreqMap :: String -> IO [GetEntry]
+getFreqMap word = do
+    con <- open databaseFile
+    rows <- (query con getQueryFormat (Only (word :: String))) :: IO [GetEntry]
+    close con
+    return rows
