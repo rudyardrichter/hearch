@@ -10,9 +10,10 @@ build-type:     Simple
 cabal-version:  >= 1.10
 
 extra-source-files:
-  setupDB.bash
-  README.md
   .gitignore
+  data/ignore.text
+  README.md
+  setupDB.bash
 
 executable hearch
   main-is:          Main.hs
