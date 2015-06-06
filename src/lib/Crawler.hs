@@ -101,8 +101,10 @@ getPage url = do
 
 
 -- for testing
+testPage :: String
 testPage = "http://stackoverflow.com/questions/1012573/getting-started-with-haskell"
 
+testGetPage :: IO Page
 testGetPage = getPage testPage
 
 -- | Given a URL and the list of words on that page, produce a map from the
@@ -124,8 +126,9 @@ makeWordFreqMap = loop Map.empty
 
 -- for testing:
 -- should output the word frequencies for the test page
+testWordFreq :: IO ()
 testWordFreq = do
-    (title, ws, links) <- testGetPage
+    (title, ws, _) <- testGetPage
     print $ makeWordFreqMap title ws
 
 -----------------------------------------------------------------------------
