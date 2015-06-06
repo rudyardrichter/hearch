@@ -23,6 +23,9 @@ import Data.Map (Map)
 databaseFile :: String
 databaseFile = "data/words.db"
 
+-----------------------------------------------------------------------------
+
+-- Format string for the storeFreqMap query.
 storeQueryFormat :: Query
 storeQueryFormat = "INSERT INTO words (word, page, freq) VALUES (?, ?, ?)"
 
@@ -37,6 +40,8 @@ storeFreqMap freqMap = do
     let freq = "testfreq" :: String
     execute con storeQueryFormat (word, page, freq)
     close con
+
+-----------------------------------------------------------------------------
 
 -- The structure of the FromRow result which will be extracted from the table.
 type GetEntry = (String, String, Int)

@@ -3,8 +3,7 @@ A primitive search engine written in Haskell.
 TODO
   * limit crawling to single domain
   * complete haddock documentation
-  * ~~figure out how to package data into redis~~
-  * implement word ignore in crawler's processing functions
+  * ~~implement word ignore in crawler's processing functions~~
 
 ## Usage
 
