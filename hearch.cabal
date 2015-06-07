@@ -46,7 +46,7 @@ library
                     sqlite-simple,
                     tagsoup
   default-language: Haskell2010
-  ghc-options:      -Wall
+  ghc-options:      -Wall -fno-warn-name-shadowing -fno-warn-unused-binds
 
 source-repository head
   type:             git

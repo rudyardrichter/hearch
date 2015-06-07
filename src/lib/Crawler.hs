@@ -153,7 +153,7 @@ makeWordFreqMap = loop Map.empty
     wordEntry views page word freqMap =
         if Map.member word freqMap
             then Map.adjust incrEntry word freqMap
-            else Map.insert word (page, 1, views) freqMap
+            else Map.insert (map toLower word) (page, 1, views) freqMap
     incrEntry (pg, cnt, views) = (pg, succ cnt, views)
 
 -- for testing:
