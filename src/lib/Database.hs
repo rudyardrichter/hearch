@@ -27,13 +27,13 @@ databaseFile = "data/words.db"
 
 -- Format string for the storeFreqMap query.
 storeQueryFormat :: Query
-storeQueryFormat = "INSERT INTO words (word, page, freq) VALUES (?, ?, ?)"
+storeQueryFormat = "INSERT INTO words (word, page, freq, views) VALUES (?, ?, ?)"
 
--- | Store a map of word/page-frequency pairs to the table.
-storeFreqMap :: Map String (String, Int) -> IO ()
+-- | Store a word/page-frequency-views map to the table.
+storeFreqMap :: Map String (String, Int, Int) -> IO ()
 storeFreqMap freqMap = do
     con <- open databaseFile
-    -- TODO: freqMap -> (word, page, freq)
+    -- TODO: Map String (String, Int) -> (String, String, Int)
     -- `x :: T` is necessary for Database.SQLite.Simple.ToField
     let word = "testword" :: String
     let page = "testpage" :: String
@@ -44,7 +44,7 @@ storeFreqMap freqMap = do
 -----------------------------------------------------------------------------
 
 -- The structure of the FromRow result which will be extracted from the table.
-type GetEntry = (String, String, Int)
+type GetEntry = (String, String, Int, Int)
 
 -- GetEntry will have a built-in FromRow instance in Database.SQLite.Simple,
 -- since it is just a normal triple, so it is not required that we build a

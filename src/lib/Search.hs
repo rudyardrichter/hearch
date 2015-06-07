@@ -37,21 +37,26 @@ runSearch numberOfResults = forever $ do
     rows <- getFreqMap input
     let pageFreqs = dropWord rows
     let topTen = unlines
-               . map (("http://stackoverflow.com" ++) . fst)
+               . map (("http://stackoverflow.com" ++) . fst')
                . take numberOfResults . sortBy freqSort
                $ pageFreqs
     print topTen
+  where
+    fst' (a, _, _) = a
 
 -- Helper function for runSearch. Converts row entries from the database to
--- a list of (page, frequency) pairs.
-dropWord :: [(String, String, Int)] -> [(String, Int)]
+-- a list of (page, frequency, views) triples.
+dropWord :: [(String, String, Int, Int)] -> [(String, Int, Int)]
 dropWord = map dropFst
   where
-    dropFst (_, y, z) = (y, z)
+    dropFst (_, x, y, z) = (x, y, z)
 
 -- Helper function for runSearch. Sorts (page, frequency) duples in
 -- descending order.
-freqSort :: (Ord b) => (a, b) -> (a, b) -> Ordering
-freqSort (_, b1) (_, b2) = compare b2 b1
+freqSort :: (Ord b)
+         => (a, b, c) -- (_, frequency, views)
+         -> (a, b, c) -- (_, frequency, views)
+         -> Ordering
+freqSort (_, f1, v1) (_, f2, v2) = undefined
 -- (note that the order is reversed since we want the highest-ranked searches
 -- to come first.)

@@ -58,21 +58,22 @@ httpRequest :: URL -> IO String
 httpRequest = simpleHTTP . getRequest >=> getResponseBody
 
 -- Extract the sections beginning with a given tag from a tag structure.
-sectionTag :: String          -- ^ the tag to look for
-           -> [Tag String]    -- ^ the parsed tagsoup
-           -> [[Tag String]]  -- ^ list of tag sections beginning with the
-                              -- desired tag
-sectionTag tag = sections (~== TagOpen tag [])
+sectionTag :: String             -- ^ the tag to look for
+           -> [(String, String)] -- ^ attributes of the tag (as in tagsoup)
+           -> [Tag String]       -- ^ the parsed tagsoup
+           -> [[Tag String]]     -- ^ list of tag sections beginning with the
+                                 -- desired tag
+sectionTag tag attr = sections (~== TagOpen tag attr)
 
 -- Get the title of a page.
 getTitle :: [Tag String] -> String
 getTitle = unwords
          . map (fromTagText . head . filter isTagText)
-         . sectionTag "title"
+         . sectionTag "title" []
 
 -- Get the text content of a page.
 getBody :: [Tag String] -> [String]
-getBody = harvest . sectionTag "p"
+getBody = harvest . sectionTag "p" []
   where
     harvest  = map niceText . concatMap getText
     getText  = words . fromTagText . head . filter isTagText
@@ -80,56 +81,86 @@ getBody = harvest . sectionTag "p"
 
 -- Get the list of all links on a page.
 getLinks :: [Tag String] -> [String]
-getLinks = map getHref . sectionTag "a"
+getLinks = map getHref . sectionTag "a" []
   where
     getHref = fromAttrib "href" . head . filter isTagOpen
+
+-- Extract the number of views from a normally-formatted Stack Overflow page.
+-- Works only on this specific format; returns 1 otherwise.
+getViews :: [Tag String] -> IO Int
+getViews tags = do
+    let views = retrieveViews tags
+    e <- try (readIO views) :: IO (Either IOError Int)
+    case e of
+        Left _  -> return 1
+        Right r -> return r
+  where
+    retrieveViews = headDef "1" . words . ix3Def "1"
+                  . map getText
+                  . sectionTag "p" [("class", "label-key")]
+    getText = fromTagText . headDef tagDef . tailDef tagDef . filter isTagText
+    -- (highly situational) functions for exceptionless retrieval from lists.
+    -- basically, we just want the views if possible, or else just return 1.
+    -- "Index 3 with Default"
+    ix3Def _ (_:_:_:x:_) = x
+    ix3Def y _ = y
+    tailDef y [] = [y]
+    tailDef _ xs = tail xs
+    headDef y [] = y
+    headDef _ xs = head xs
+    tagDef = TagText "1"
 
 -----------------------------------------------------------------------------
 
 -- This section contains functions for manipulating data from webpages, and
 -- ultimately generating a Page result from a URL.
 
--- type Page = (Title, Words, Links)
-type Page = (String, [String], [String])
+-- type Page = (Views, Title, Words, Links)
+type Page = (Int, String, [String], [String])
 
 -- unified page get function
 getPage :: URL      -- ^ the URL of the page to retrieve
         -> IO Page  -- ^ the Page result
 getPage url = do
     tags <- httpRequest url >>= return . parseTags
-    return (getTitle tags, getBody tags, getLinks tags)
+    views <- getViews tags
+    return (views, getTitle tags, getBody tags, getLinks tags)
 
 
 -- for testing
 testPage :: String
 testPage = "http://stackoverflow.com/questions/1012573/getting-started-with-haskell"
 
+testPage2 :: String
+testPage2 = "http://stackoverflow.com/questions/16918/beginners-guide-to-haskell"
+
 testGetPage :: IO Page
 testGetPage = getPage testPage
 
 -- | Given a URL and the list of words on that page, produce a map from the
 -- words to duples containing the URL and the frequency count.
-makeWordFreqMap :: String     -- ^ URL of the page
-                -> [String]   -- ^ raw word content of the page
-                              -- (along with weighted title---see crawlPage)
-                -> Map String (String, Int)
-                              -- ^ map of words to a (page, frequency) duple
+makeWordFreqMap :: Int       -- ^ the number of views
+                -> String    -- ^ URL of the page
+                -> [String]  -- ^ raw word content of the page
+                             -- (along with weighted title---see crawlPage)
+                -> Map String (String, Int, Int)
+                             -- ^ map words to (page, frequency, views)
 makeWordFreqMap = loop Map.empty
   where
-    loop freqMap _ [] = freqMap
-    loop freqMap page (w:ws) = loop (wordEntry page w freqMap) page ws
-    wordEntry page word freqMap =
+    loop freqMap _ _ [] = freqMap
+    loop freqMap views page (w:ws) = loop (wordEntry views page w freqMap) views page ws
+    wordEntry views page word freqMap =
         if Map.member word freqMap
             then Map.adjust incrEntry word freqMap
-            else Map.insert word (page, 1) freqMap
-    incrEntry (pg, cnt) = (pg, succ cnt)
+            else Map.insert word (page, 1, views) freqMap
+    incrEntry (pg, cnt, views) = (pg, succ cnt, views)
 
 -- for testing:
 -- should output the word frequencies for the test page
 testWordFreq :: IO ()
 testWordFreq = do
-    (title, ws, _) <- testGetPage
-    print $ makeWordFreqMap title ws
+    (views, title, ws, _) <- testGetPage
+    print $ makeWordFreqMap views title ws
 
 -----------------------------------------------------------------------------
 
@@ -140,7 +171,7 @@ defaultCrawledFile :: String
 defaultCrawledFile = "data/crawled.txt"
 
 -- exception instance to handle possible exceptions from the crawler
-data CrawlerException = RedisError
+data CrawlerException = SQLError
                       | ServerError
                       deriving (Show, Typeable)
 
@@ -166,7 +197,7 @@ crawlPage :: URL          -- ^ the URL of a page to crawl
           -> IO [String]  -- ^ hyperlinks found on that page
 crawlPage url ignoreWords = do
     -- obtain page result
-    (title, ws, links) <- getPage url
+    (views, title, ws, links) <- getPage url
     -- (note: Stack Overflow-specific)
     -- discard "Stack Overflow" from title text
     let titleWords = takeWhile (/= "Stack") $ words title
@@ -174,7 +205,7 @@ crawlPage url ignoreWords = do
     let weightedWords = filter (flip Set.notMember ignoreWords)
                       $ (concat $ replicate 3 titleWords) ++ ws
     -- store page into word/page-frequency map
-    let freqMap = makeWordFreqMap url weightedWords
+    let freqMap = makeWordFreqMap views url weightedWords
     -- call storeFreqMap from Database to store the result
     storeFreqMap freqMap
     return links
