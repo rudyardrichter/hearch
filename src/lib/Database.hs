@@ -10,7 +10,7 @@
 ---- Stability   :  development
 ---- Portability :  non-portable
 ----
----- Provides functions to use for interfacing with the database
+---- Provides functions to use for interfacing with the database.
 ----
 -----------------------------------------------------------------------------
 

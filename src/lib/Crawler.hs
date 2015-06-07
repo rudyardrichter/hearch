@@ -179,32 +179,43 @@ crawlPage url ignoreWords = do
     storeFreqMap freqMap
     return links
 
--- | The main routine for the crawler, exported to Main.
-runCrawler :: IO ()
-runCrawler = do
+-- | The main routine for the crawler, exported to Main. Is essentially a
+-- wrapper of runCrawlPage.
+runCrawler :: Int -> IO ()
+runCrawler n = do
     -- load the list of ignored words and open the crawled links file
     ignoreWordsSet <- readIgnoreFile defaultIgnoreFile
     crawledHandle <- openFile defaultCrawledFile AppendMode
-    forever $ do
-        -- open the URL file and get a new URL to crawl
-        urlsHandle <- openFile defaultURLFile ReadWriteMode
-        url <- hGetLine urlsHandle
-        -- crawl the page and collect the links from the page
-        allLinks <- catch (crawlPage url ignoreWordsSet)
-                          (crawlerHandler urlsHandle crawledHandle)
-        -- filter for links which go to other questions,
-        -- and format the links so they can be used
-        let newLinks = formatLinks . filter correctDomain $ allLinks
-        -- remove the URL we just crawled from the URL file,
-        -- and write it to the file of links which have been crawled
-        deleteLine urlsHandle
-        hPutStrLn crawledHandle url
-        -- close the URL file handle
-        hClose urlsHandle
-        -- append all the new URLs to the URL file
-        mapM_ (appendFile defaultURLFile) newLinks
+    if n > 0
+        then doNTimes n $ runCrawlPage ignoreWordsSet crawledHandle
+        else forever $ runCrawlPage ignoreWordsSet crawledHandle
+  where
+    doNTimes n action = action >> doNTimes (pred n) action
 
--- Helper function for runCrawler. Deletes the first line of an open file.
+-- Subroutine of runCrawer. Performs crawling on one page.
+-- (Having the option to crawl one page at a time also facilitates
+-- testing/debugging.)
+runCrawlPage :: Set String -> Handle -> IO ()
+runCrawlPage ignoreWordsSet crawledHandle = do
+    -- open the URL file and get a new URL to crawl
+    urlsHandle <- openFile defaultURLFile ReadWriteMode
+    url <- hGetLine urlsHandle
+    -- crawl the page and collect the links from the page
+    allLinks <- catch (crawlPage url ignoreWordsSet)
+                      (crawlerHandler urlsHandle crawledHandle)
+    -- filter for links which go to other questions,
+    -- and format the links so they can be used
+    let newLinks = formatLinks . filter correctDomain $ allLinks
+    -- remove the URL we just crawled from the URL file,
+    -- and write it to the file of links which have been crawled
+    deleteLine urlsHandle
+    hPutStrLn crawledHandle url
+    -- close the URL file handle
+    hClose urlsHandle
+    -- append all the new URLs to the URL file
+    mapM_ (appendFile defaultURLFile) newLinks
+
+-- Helper function for runCrawlPage. Deletes the first line of an open file.
 deleteLine :: Handle -> IO ()
 deleteLine hdl = loop
   where
@@ -223,7 +234,7 @@ correctDomain = beginsWith "/q"
     beginsWith _ [] = False
     beginsWith (x:xs) (y:ys) = x == y && beginsWith xs ys
 
--- Helper function for runCrawler. Takes the links which were filtered with
+-- Helper function for runCrawlPage. Takes the links which were filtered with
 -- correctDomain and formats them as usable URLs (prepending
 -- "http://stackoverflow.com").
 formatLinks :: [String] -> [String]

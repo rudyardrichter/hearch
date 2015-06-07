@@ -8,8 +8,9 @@
 ---- Stability   :  development
 ---- Portability :  non-portable
 ----
----- Provides functions to use for interfacing with the Redis database
----- (via hedis, the Haskell Redis client).
+---- Exports runSearch to Main. runSearch loops continuously, asking the
+---- user for input to use for a search, and then printing the top results
+---- for that search.
 ----
 -----------------------------------------------------------------------------
 
@@ -19,19 +20,24 @@ import Database
 
 import Control.Monad
 import Data.List (sortBy)
+import System.Exit
+import System.IO
 
-runSearch :: IO ()
-runSearch = forever $ do
+runSearch :: Int -> IO ()
+runSearch numberOfResults = forever $ do
     putStr "hearch > "
+    -- make sure it prints that ^ string
+    hFlush stdout
+    -- get input
     input <- getLine
     -- exit if the user wants to
     when (input == "q" || input == "quit") $ do
         putStrLn "Thanks for using Hearch!"
-        return ()
+        exitSuccess
     rows <- getFreqMap input
     let pageFreqs = dropWord rows
     let topTen = map (("http://stackoverflow.com" ++) . fst)
-               . take 10 . sortBy freqSort
+               . take numberOfResults . sortBy freqSort
                $ pageFreqs
     print topTen
 
@@ -45,4 +51,6 @@ dropWord = map dropFst
 -- Helper function for runSearch. Sorts (page, frequency) duples in
 -- descending order.
 freqSort :: (Ord b) => (a, b) -> (a, b) -> Ordering
-freqSort (a1, b1) (a2, b2) = compare b2 b1
+freqSort (_, b1) (_, b2) = compare b2 b1
+-- (note that the order is reversed since we want the highest-ranked searches
+-- to come first.)
