@@ -1,8 +1,8 @@
 A primitive search engine written in Haskell.
 
 TODO
-  * finish `freqSort` algorithm in Search
-  * finish writing `storeFreqMap`!
+  * ~~finish `freqSort` algorithm in Search~~
+  * ~~finish writing `storeFreqMap`~~
   * ~~limit crawling to single domain~~
   * make sure crawler never visits same page twice
   * complete haddock documentation

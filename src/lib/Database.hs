@@ -18,7 +18,10 @@ module Database where
 
 import Database.SQLite.Simple
 
+import Control.Monad
+
 import Data.Map (Map)
+import qualified Data.Map as Map
 
 databaseFile :: String
 databaseFile = "data/words.db"
@@ -27,23 +30,27 @@ databaseFile = "data/words.db"
 
 -- Format string for the storeFreqMap query.
 storeQueryFormat :: Query
-storeQueryFormat = "INSERT INTO words (word, page, freq, views) VALUES (?, ?, ?)"
+storeQueryFormat = "INSERT INTO words (word, page, freq, views) VALUES (?, ?, ?, ?)"
 
 -- | Store a word/page-frequency-views map to the table.
 storeFreqMap :: Map String (String, Int, Int) -> IO ()
 storeFreqMap freqMap = do
     con <- open databaseFile
-    -- TODO: Map String (String, Int) -> (String, String, Int)
-    -- `x :: T` is necessary for Database.SQLite.Simple.ToField
-    let word = "testword" :: String
-    let page = "testpage" :: String
-    let freq = "testfreq" :: String
-    execute con storeQueryFormat (word, page, freq)
+    -- Map Word (Page, Freq, Views) -> (Word, Page, Freq, Views)
+    let rows = map joinAssosc $ Map.assocs freqMap
+    -- store all the rows in the table
+    forM_ rows $ execute con storeQueryFormat
     close con
+
+-- Helper function for storeFreqMap. Joins a (word, (page, freq, views))
+-- map into one quadruple which can then be stored in the table.
+joinAssosc :: (String, (String, Int, Int)) -> (String, String, Int, Int)
+joinAssosc (a, (b, c, d)) = (a, b, c, d)
 
 -----------------------------------------------------------------------------
 
 -- The structure of the FromRow result which will be extracted from the table.
+-- type GetEntry = (word, page, frequency, views)
 type GetEntry = (String, String, Int, Int)
 
 -- GetEntry will have a built-in FromRow instance in Database.SQLite.Simple,

@@ -51,12 +51,17 @@ dropWord = map dropFst
   where
     dropFst (_, x, y, z) = (x, y, z)
 
--- Helper function for runSearch. Sorts (page, frequency) duples in
+-- Helper function for runSearch. Sorts (page, frequency, views) triples in
 -- descending order.
-freqSort :: (Ord b)
+freqSort :: (Integral b, Integral c)
          => (a, b, c) -- (_, frequency, views)
          -> (a, b, c) -- (_, frequency, views)
          -> Ordering
-freqSort (_, f1, v1) (_, f2, v2) = undefined
--- (note that the order is reversed since we want the highest-ranked searches
--- to come first.)
+freqSort (_, f1, v1) (_, f2, v2) = compare (f2' * log v2') (f1' * log v1')
+  where
+    f1' = fromIntegral f1 :: Double
+    v1' = fromIntegral v1 :: Double
+    f2' = fromIntegral f2 :: Double
+    v2' = fromIntegral v2 :: Double
+-- (note that the order of pairs in the output is reversed because we want
+-- the highest-ranked searches to come first.)
