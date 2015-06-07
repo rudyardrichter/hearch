@@ -228,11 +228,17 @@ deleteLine hdl = loop
 -- domain (stackoverflow.com/questions). These URLs will all be linked from
 -- the current page as beginning with "/q" or "/questions".
 correctDomain :: String -> Bool
-correctDomain = beginsWith "/q"
+correctDomain url = beginsWith "/q" url && notDisallowed url
   where
     beginsWith [] _ = True
     beginsWith _ [] = False
     beginsWith (x:xs) (y:ys) = x == y && beginsWith xs ys
+    notDisallowed url = not . any (flip beginsWith url) $ disallowed
+    -- from stackoverflow.com/robots.txt
+    disallowed = ["/questions/*answertab=*"
+                 ,"/questions/tagged/***"
+                 ,"/questions/tagged/*%20*"
+                 ,"/questions/*/answer/submit"]
 
 -- Helper function for runCrawlPage. Takes the links which were filtered with
 -- correctDomain and formats them as usable URLs (prepending

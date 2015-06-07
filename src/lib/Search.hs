@@ -36,7 +36,8 @@ runSearch numberOfResults = forever $ do
         exitSuccess
     rows <- getFreqMap input
     let pageFreqs = dropWord rows
-    let topTen = map (("http://stackoverflow.com" ++) . fst)
+    let topTen = unlines
+               . map (("http://stackoverflow.com" ++) . fst)
                . take numberOfResults . sortBy freqSort
                $ pageFreqs
     print topTen

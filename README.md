@@ -1,11 +1,13 @@
 A primitive search engine written in Haskell.
 
 TODO
+  * finish writing `storeFreqMap`!
   * ~~limit crawling to single domain~~
+  * make sure crawler never visits same page twice
   * complete haddock documentation
   * ~~implement word ignore in crawler's processing functions~~
-  * make ranking less naive
   * implement `AND`, `OR` operators for search
+  * make ranking less naive
 
 ## Usage
 
@@ -23,7 +25,9 @@ Run `setupDB.bash` once before doing anything to create the SQLite database.
 
 #### Crawler.hs
 
-The web crawler.
+The web crawler. It restricts itself to browsing
+`stackoverflow.com/questions`. Applicable URLs from
+`stackoverflow.com/robots.txt` are hard-coded into the crawler.
 
 #### Database.hs
 
