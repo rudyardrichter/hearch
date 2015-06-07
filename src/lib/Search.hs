@@ -14,7 +14,7 @@
 ----
 -----------------------------------------------------------------------------
 
-module Search (runSearch) where
+module Search where
 
 import Database
 
@@ -65,22 +65,20 @@ scorePage (_, page, freq, views) = (page, freq' * log views')
     freq'  = fromIntegral freq  :: Double
     views' = fromIntegral views :: Double
 
-aggregate :: (Eq a, Num b) => [(a, b)] -> [(a, b)]
+-- Combine page entries.
+aggregate :: [(String, Double)] -> [(String, Double)]
 aggregate = loop []
   where
-    -- loop goes through each element of rows and applies subLoop to them
     loop acc rows = case rows of
         []     -> acc
-        (x:xs) -> loop (subLoop x xs : acc) xs
-    -- subLoop checks an element (a, b1) against all other elements of rows
-    -- and merges it with elements (a, b2) to produce (a, b1 + b2)
-    subLoop acc rows = case rows of
-        []     -> acc
-        (x:xs) -> subLoop (merge x acc) xs
-    merge (a1, b1) (a2, b2) =
-        if a1 == a2
-            then (a1, b1 + b2)
-            else (a1, b1)
+        (x:xs) ->
+            let (x', xs') = foldMerge x [] xs
+            in loop (x' : acc) xs'
+    foldMerge merged unmerged toMerge = case toMerge of
+        []     -> (merged, unmerged)
+        (x:xs) -> if fst x == fst merged
+            then foldMerge (fst merged, snd merged + snd x) unmerged xs
+            else foldMerge merged (x : unmerged) xs
 
 -- Helper function for runSearch. Sorts aggregated (page, score) duples in
 -- descending order.

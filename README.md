@@ -8,8 +8,11 @@ TODO
   * write test suite
   * complete haddock documentation
   * ~~implement word ignore in crawler's processing functions~~
-  * implement `AND`, `OR` operators for search
-  * make ranking less naive
+  * ~~make ranking slightly less naive~~
+
+Maybe do
+  * make ranking even less naive
+  * implement an `AND` operator for searches
 
 ## Usage
 
@@ -22,6 +25,13 @@ Run `setupDB.bash` once before doing anything to create the SQLite database.
     $ cabal run
 
     $ cabal test
+
+Note that `cabal test` will not print out its results if all the tests are
+passing, so instead run with
+
+    $ cabal test --log=/dev/stdout
+
+and `cabal` will print out the results of all the tests.
 
 ## Modules
 

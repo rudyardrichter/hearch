@@ -31,14 +31,12 @@ test-suite test-hearch
                     hspec,
                     hearch
   default-language: Haskell2010
-  ghc-options:      -Wall -Werror
 
 library
   hs-source-dirs:   src/lib
   exposed-modules:  Crawler,
                     Database,
-                    Search,
-                    Rank
+                    Search
   build-depends:    base >= 4.7 && < 4.8,
                     bytestring,
                     containers,

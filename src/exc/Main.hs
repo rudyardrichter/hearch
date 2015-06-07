@@ -1,7 +1,7 @@
 module Main (main) where
 
-import Crawler
-import Search
+import Crawler (runCrawler)
+import Search (runSearch)
 
 import Control.Exception
 import Control.Monad (when)
