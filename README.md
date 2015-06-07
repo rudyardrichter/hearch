@@ -27,7 +27,8 @@ Run `setupDB.bash` once before doing anything to create the SQLite database.
 
 The web crawler. It restricts itself to browsing
 [stackoverflow.com/questions](stackoverflow.com/questions). Applicable URLs
-from [](stackoverflow.com/robots.txt) are hard-coded into the crawler.
+from [stackoverflow.com/robots.txt](stackoverflow.com/robots.txt) are
+hard-coded into the crawler.
 
 #### Database.hs
 
