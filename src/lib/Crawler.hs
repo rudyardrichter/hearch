@@ -148,7 +148,8 @@ makeWordFreqMap :: Int       -- ^ the number of views
 makeWordFreqMap = loop Map.empty
   where
     loop freqMap _ _ [] = freqMap
-    loop freqMap views page (w:ws) = loop (wordEntry views page w freqMap) views page ws
+    loop freqMap views page (w:ws) =
+        loop (wordEntry views page w freqMap) views page ws
     wordEntry views page word freqMap =
         if Map.member word freqMap
             then Map.adjust incrEntry word freqMap
