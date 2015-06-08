@@ -100,22 +100,26 @@ getViews tags = do
     let views = retrieveViews tags
     e <- try (readIO views) :: IO (Either IOError Int)
     case e of
-        Left _  -> return 1
+        Left _  -> return 2
         Right r -> return r
   where
-    retrieveViews = headDef "1"
+    retrieveViews = headDef "2"
                   . headDef []
                   . filter ("times" `elem`)
                   . map (words . fromTagText)
                   . filter isTagText
-                  . headDef [tagDef]
+                  . headDef tagDef
                   . sectionTag "p" [("class", "label-key")]
-                  . headDef [tagDef]
+                  . headDef tagDef
                   . sectionTag "table" [("id", "qinfo")]
     -- safe head function, returns the default value if the list is empty
     headDef y [] = y
     headDef _ xs = head xs
-    tagDef = TagText "1"
+    tagDef = [TagText "2"]
+
+-- Note that we chose 2 as the default value because of the use of log in the
+-- ranking algorithm, so a default value of 1 would effectively ignore those
+-- results while searching.
 
 -----------------------------------------------------------------------------
 
