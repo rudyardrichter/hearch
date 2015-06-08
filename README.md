@@ -17,6 +17,8 @@ Maybe do
 
 ## Usage
 
+#### Setup
+
 Run `setupDB.bash` once before doing anything to create the SQLite database.
 
     $ cabal install --only-dependencies --enable tests
@@ -36,6 +38,10 @@ instead run with one of the following:
 
 and `cabal` will print out the results of all the tests. `runTests.bash`
 also colorizes the `cabal test` output for 15% more fun.
+
+#### Searching
+
+Searches should be entered in lowercase.
 
 ## Modules
 

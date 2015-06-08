@@ -1,4 +1,4 @@
-data/words.db
+data
 dist
 cabal-dev
 *.o

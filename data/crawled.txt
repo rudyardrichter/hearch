@@ -1,4 +1,0 @@
-/questions/1012573/getting-started-with-haskell
-/questions
-/questions
-/questions/ask

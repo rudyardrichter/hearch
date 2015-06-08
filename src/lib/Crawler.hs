@@ -23,9 +23,13 @@ import Database
 
 import Control.Exception
 import Control.Monad
-import Data.Char
+import Data.Char (
+    isAlpha,
+    isSpace,
+    toLower
+    )
+import Data.List (nub)
 import Network.HTTP hiding (Connection)
-import System.Exit
 import System.IO
 import System.Posix.Signals
 import System.Process
@@ -199,15 +203,15 @@ crawlPage url ignoreWords = do
 runCrawler :: Int -> IO ()
 runCrawler n = do
     -- load the list of ignored words and open the crawled links file
-    ignoreWordsSet <- readFileToSet defaultIgnoreFile
+    ignore <- readFileToSet defaultIgnoreFile
     crawledSet <- readFileToSet defaultCrawledFile
     putStr "Running the crawler"
     hFlush stdout
     if n > 0
-        then void $
-             foldr (<=<) return (replicate n (runCrawlPage ignoreWordsSet))
-                 $ crawledSet
-        else forever $ runCrawlPage ignoreWordsSet crawledSet
+        then void (foldr (<=<) return (crawlPages ignore) crawledSet) >> putStrLn ""
+        else forever $ runCrawlPage ignore crawledSet
+  where
+    crawlPages ignore = replicate n $ runCrawlPage ignore
 
 -- | Performs crawling on one page. The intermediary crawling function (is
 -- called by runCrawler, runs crawlPage): manages the file of URLs to crawl,
@@ -225,12 +229,13 @@ runCrawlPage ignoreWordsSet crawledSet = do
     -- crawl the page and collect the links from the page
     allLinks <- crawlPage url ignoreWordsSet
     -- let /q and /questions go through
-    let redundant url = if length url > 10
+    let redundant url = if url /= "/questions"
         then not . beginsWith url
         else \_ -> True
     -- filter for links which go to other questions, filter out links which
     -- have already been crawled, then format the links so they can be used
-    let newLinks = filter (redundant url)
+    let newLinks = nub
+                 . filter (redundant url)
                  . filter (flip Set.notMember crawledSet)
                  . filter correctDomain
                  $ allLinks
@@ -246,8 +251,8 @@ runCrawlPage ignoreWordsSet crawledSet = do
     -- handle, and append all the new URLs to the URL file via appendFile
     -- ! literal system command to remove first line of urls.txt
     -- ! urls.txt must be closed during this operation
-    processHandle <- runCommand "tail -n +2 data/urls.txt > data/urls.txt"
-    exitcode <- waitForProcess processHandle
+    processHandle <- runCommand tailScript
+    _ <- waitForProcess processHandle
     withFile defaultURLFile AppendMode $ \hdl ->
         mapM_ (hPutStrLn hdl) newLinks
     -- add the URL we just crawled to the crawled file
@@ -256,12 +261,13 @@ runCrawlPage ignoreWordsSet crawledSet = do
     -- ! check for SIGINT
     unblockSignals fullSignalSet
     return $ Set.insert url crawledSet
+  where tailScript = "tail -n +2 data/urls.txt > data/tmp; cp data/tmp data/urls.txt; rm data/tmp"
 
 -- Helper function for runCrawler. Checks if a URL goes to the desired
 -- domain (stackoverflow.com/questions). These URLs will all be linked from
--- the current page as beginning with "/q" or "/questions".
+-- the current page as beginning with "/questions".
 correctDomain :: String -> Bool
-correctDomain url = beginsWith "/q" url && notDisallowed url
+correctDomain url = beginsWith "/questions" url && notDisallowed url
   where
     notDisallowed url = not . any (flip beginsWith url) $ disallowed
     -- from stackoverflow.com/robots.txt
@@ -270,6 +276,7 @@ correctDomain url = beginsWith "/q" url && notDisallowed url
                  ,"/questions/tagged/*%20*"
                  ,"/questions/*/answer/submit"]
 
+-- Utility function. Checks if a string is a prefix of another string.
 beginsWith :: (Eq a) => [a] -> [a] -> Bool
 beginsWith [] _ = True
 beginsWith _ [] = False
