@@ -93,25 +93,28 @@ getLinks = map getHref . sectionTag "a" []
 
 -- Extract the number of views from a normally-formatted Stack Overflow page.
 -- Works only on this specific format; returns 1 otherwise.
+-- ! NOTE: this function will return default value for pages that are not
+-- formatted in the Stack Overflow Q&A schema.
 getViews :: [Tag String] -> IO Int
 getViews tags = do
     let views = retrieveViews tags
     e <- try (readIO views) :: IO (Either IOError Int)
     case e of
         Left _  -> return 1
-        Right r -> return r
+        Right r -> do
+            when (r == 1) $ putStrLn "ERROR\n"
+            return r
   where
-    retrieveViews = headDef "1" . words . ix3Def "1"
-                  . map getText
+    retrieveViews = headDef "1"
+                  . headDef []
+                  . filter ("times" `elem`)
+                  . map (words . fromTagText)
+                  . filter isTagText
+                  . headDef [tagDef]
                   . sectionTag "p" [("class", "label-key")]
-    getText = fromTagText . headDef tagDef . tailDef tagDef . filter isTagText
-    -- (highly situational) functions for exceptionless retrieval from lists.
-    -- basically, we just want the views if possible, or else just return 1.
-    -- "Index 3 with Default"
-    ix3Def _ (_:_:_:x:_) = x
-    ix3Def y _ = y
-    tailDef y [] = [y]
-    tailDef _ xs = tail xs
+                  . headDef [tagDef]
+                  . sectionTag "table" [("id", "qinfo")]
+    -- safe head function, returns the default value if the list is empty
     headDef y [] = y
     headDef _ xs = head xs
     tagDef = TagText "1"

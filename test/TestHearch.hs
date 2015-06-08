@@ -27,16 +27,20 @@ testPage0 :: String
 testPage0 = "http://stackoverflow.com/questions/1012573/getting-started-with-haskell"
 
 testPage1 :: String
-testPage1 = "http://stackoverflow.com/questions/16918/beginners-guide-to-haskell"
+testPage1 = "http://stackoverflow.com/questions/1732348/regex-match-open-tags-except-xhtml-self-contained-tags"
 
 main :: IO ()
 main = hspec $ describe "Testing Hearch" $ do
 
     describe "module Crawler" $ do
         describe "function getViews" $ do
-            it "should (usually) return the view count of a Stack Overflow page" $ do
+            it "should return the view count of a Stack Overflow page" $ do
                 httpRequest testPage0 >>= getViews . parseTags
                                       >>= return . (>= 131823)
+                `shouldReturn` True
+            it "should return the view count of arbitrary Stack Overflow pages" $ do
+                httpRequest testPage1 >>= getViews . parseTags
+                                      >>= return . (>= 1320684)
                 `shouldReturn` True
             it "should return 1 if it fails to retrieve a view count" $ do
                 httpRequest "http://google.com" >>= getViews . parseTags
