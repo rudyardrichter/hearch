@@ -1,12 +1,13 @@
 A primitive search engine written in Haskell.
 
 TODO
+  * fix getViews
   * ~~finish `freqSort` algorithm in Search~~
   * ~~finish writing `storeFreqMap`~~
   * ~~limit crawling to single domain~~
   * ~~make sure crawler never visits same page twice~~
   * write test suite
-  * setup: make empty `crawled.txt`, make `urls.txt` with seed URL
+  * setup: extract `data.tar.gz` during setup
   * complete haddock documentation
   * ~~implement word ignore in crawler's processing functions~~
   * ~~make ranking slightly less naive~~
@@ -19,7 +20,8 @@ Maybe do
 
 #### Setup
 
-Run `setupDB.bash` once before doing anything to create the SQLite database.
+Run `setupDB.bash` once before doing anything to create the SQLite database,
+and unpack the data files in `data.tar.gz`.
 
     $ cabal install --only-dependencies --enable tests
     $ cabal configure --enable-tests
@@ -29,7 +31,7 @@ Run `setupDB.bash` once before doing anything to create the SQLite database.
 
     $ cabal test
 
-I have suppressed warnings from name shadowing and unused bindings. Note that
+Warnings from name shadowing and unused bindings are suppressed. Note that
 `cabal test` will not print out its results if all the tests are passing, so
 instead run with one of the following:
 
@@ -69,11 +71,11 @@ searches. A search consisting of multiple words is assumed to mean
 
     word1 OR word2 OR ...
 
-#### Rank.hs
-
-Will contain ranking algorithms.
-
 ## Data
+
+Data-related files are contained in the `data` folder. There is also a
+sub-folder `data/backup` which stores all the files which were most recently
+overwritten.
 
 #### Database
 
@@ -83,8 +85,7 @@ crawler. The columns of the table are
     word  |  page  |  frequency  |  views
 
 where `word` occurred `frequency` times on `page`, and `page` has `views`
-views.
-
+views. The table is stored in `data/words.db`.
 
 #### URL File
 

@@ -60,7 +60,7 @@ searchFor n = putStrLn . unlines . map (("http://stackoverflow.com" ++) . fst)
 -- Helper function for runSearch. Converts row entries from the database to
 -- a list of (page, score) duples and also drops the word from the results.
 scorePage :: (String, String, Int, Int) -> (String, Double)
-scorePage (_, page, freq, views) = (page, freq' * log views')
+scorePage (_, page, freq, views) = (page, freq')
   where
     freq'  = fromIntegral freq  :: Double
     views' = fromIntegral views :: Double

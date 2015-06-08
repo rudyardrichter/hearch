@@ -261,7 +261,8 @@ runCrawlPage ignoreWordsSet crawledSet = do
     -- ! check for SIGINT
     unblockSignals fullSignalSet
     return $ Set.insert url crawledSet
-  where tailScript = "tail -n +2 data/urls.txt > data/tmp; cp data/tmp data/urls.txt; rm data/tmp"
+  where
+    tailScript = "tail -n +2 data/urls.txt > data/tmp; cp data/tmp data/urls.txt; rm data/tmp"
 
 -- Helper function for runCrawler. Checks if a URL goes to the desired
 -- domain (stackoverflow.com/questions). These URLs will all be linked from
@@ -288,5 +289,6 @@ beginsWith (x:xs) (y:ys) = x == y && beginsWith xs ys
 formatLinks :: [String] -> [String]
 formatLinks = map formatLink
 
+-- Prepend "http://stackoverflow.com" to a single link.
 formatLink :: String -> String
 formatLink = ("http://stackoverflow.com" ++)
