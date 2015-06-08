@@ -14,18 +14,33 @@
 
 module Main (main) where
 
+import Crawler
+import Database
 import Search
 
 import Data.List (sort)
+import Text.HTML.TagSoup
 
 import Test.Hspec
+
+testPage0 :: String
+testPage0 = "http://stackoverflow.com/questions/1012573/getting-started-with-haskell"
+
+testPage1 :: String
+testPage1 = "http://stackoverflow.com/questions/16918/beginners-guide-to-haskell"
 
 main :: IO ()
 main = hspec $ describe "Testing Hearch" $ do
 
     describe "module Crawler" $ do
-        it "needs more tests" $ do
-            pending
+        describe "function getViews" $ do
+            it "should (usually) return the view count of a Stack Overflow page" $ do
+                httpRequest testPage0 >>= getViews . parseTags
+                                      >>= return . (>= 131823)
+                `shouldReturn` True
+            it "should return 1 if it fails to retrieve a view count" $ do
+                httpRequest "http://google.com" >>= getViews . parseTags
+                `shouldReturn` 1
 
     describe "module Database" $ do
         it "needs more tests" $ do

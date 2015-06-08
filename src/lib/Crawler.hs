@@ -17,16 +17,18 @@
 ----
 -----------------------------------------------------------------------------
 
-module Crawler (runCrawler) where
+module Crawler where
 
 import Database
 
-import Control.Monad
 import Control.Exception
+import Control.Monad
 import Data.Char
-import Data.Typeable
 import Network.HTTP hiding (Connection)
+import System.Exit
 import System.IO
+import System.Posix.Signals
+import System.Process
 import Text.HTML.TagSoup
 
 import Data.Map (Map)
@@ -49,9 +51,9 @@ defaultURLFile = "data/urls.txt"
 defaultIgnoreFile :: FilePath
 defaultIgnoreFile = "data/ignore.txt"
 
--- Read the ignore file into a Set structure.
-readIgnoreFile :: FilePath -> IO (Set String)
-readIgnoreFile = fmap (Set.fromList . lines) . readFile
+-- Read a file into a Set structure.
+readFileToSet :: FilePath -> IO (Set String)
+readFileToSet = fmap (Set.fromList . lines) . readFile
 
 -- Request the HTML content of a page.
 httpRequest :: URL -> IO String
@@ -131,9 +133,6 @@ getPage url = do
 testPage :: String
 testPage = "http://stackoverflow.com/questions/1012573/getting-started-with-haskell"
 
-testPage2 :: String
-testPage2 = "http://stackoverflow.com/questions/16918/beginners-guide-to-haskell"
-
 testGetPage :: IO Page
 testGetPage = getPage testPage
 
@@ -171,34 +170,17 @@ testWordFreq = do
 defaultCrawledFile :: String
 defaultCrawledFile = "data/crawled.txt"
 
--- exception instance to handle possible exceptions from the crawler
-data CrawlerException = SQLError
-                      | ServerError
-                      deriving (Show, Typeable)
-
-instance Exception CrawlerException
-
--- | Exception handler for exiting from the crawler. Takes the handles from
--- urls.txt and crawled.txt to make sure they are closed.
-crawlerHandler :: Handle           -- ^ handle for urls.txt
-               -> Handle           -- ^ handle for crawled.txt
-               -> CrawlerException -- ^ the exception to catch
-               -> IO [String]      -- ^ empty [String], to match return type
-                                   -- of crawlPage
-crawlerHandler urlsHandle crawledHandle exc = do
-    let err = show (exc :: CrawlerException)
-    hPutStr stderr $ "crawler exited with" ++ err
-    hClose urlsHandle
-    hClose crawledHandle
-    return [""]
-
--- | Crawl a page and stash the results in the server.
-crawlPage :: URL          -- ^ the URL of a page to crawl
+-- | Crawl a page and stash the results in the server. The innermost
+-- crawling function (inside runCrawler and runCrawlPage): manages data
+-- extraction from a single page, retrieving the title, the word content,
+-- the hyperlinks, and the number of views, which it stores in the SQLite
+-- table. It returns the list of links it retrieved.
+crawlPage :: URL          -- ^ the *unformatted* URL of a page to crawl
           -> Set String   -- ^ a set of words to ignore
           -> IO [String]  -- ^ hyperlinks found on that page
 crawlPage url ignoreWords = do
     -- obtain page result
-    (views, title, ws, links) <- getPage url
+    (views, title, ws, links) <- getPage $ formatLink url
     -- (note: Stack Overflow-specific)
     -- discard "Stack Overflow" from title text
     let titleWords = takeWhile (/= "Stack") $ words title
@@ -212,49 +194,68 @@ crawlPage url ignoreWords = do
     return links
 
 -- | The main routine for the crawler, exported to Main. Is essentially a
--- wrapper of runCrawlPage.
+-- wrapper of runCrawlPage, feeding it the default set of ignore words and
+-- the initial crawledSet. The outermost crawling function.
 runCrawler :: Int -> IO ()
 runCrawler n = do
     -- load the list of ignored words and open the crawled links file
-    ignoreWordsSet <- readIgnoreFile defaultIgnoreFile
-    crawledHandle <- openFile defaultCrawledFile AppendMode
+    ignoreWordsSet <- readFileToSet defaultIgnoreFile
+    crawledSet <- readFileToSet defaultCrawledFile
+    putStr "Running the crawler"
+    hFlush stdout
     if n > 0
-        then doNTimes n $ runCrawlPage ignoreWordsSet crawledHandle
-        else forever $ runCrawlPage ignoreWordsSet crawledHandle
-  where
-    doNTimes n action = action >> doNTimes (pred n) action
+        then void $
+             foldr (<=<) return (replicate n (runCrawlPage ignoreWordsSet))
+                 $ crawledSet
+        else forever $ runCrawlPage ignoreWordsSet crawledSet
 
--- Subroutine of runCrawer. Performs crawling on one page.
--- (Having the option to crawl one page at a time also facilitates
--- testing/debugging.)
-runCrawlPage :: Set String -> Handle -> IO ()
-runCrawlPage ignoreWordsSet crawledHandle = do
-    -- open the URL file and get a new URL to crawl
-    urlsHandle <- openFile defaultURLFile ReadWriteMode
-    url <- hGetLine urlsHandle
+-- | Performs crawling on one page. The intermediary crawling function (is
+-- called by runCrawler, runs crawlPage): manages the file of URLs to crawl,
+-- appends crawled URLs to the crawled file and also adds them to the
+-- crawledSet, which it returns to the next call of runCrawlPage (see above,
+-- in runCrawler).
+runCrawlPage :: Set String -> Set String -> IO (Set String)
+runCrawlPage ignoreWordsSet crawledSet = do
+    putStr "."
+    hFlush stdout
+    -- ! block SIGINT until we are done crawling the page
+    blockSignals $ addSignal sigINT emptySignalSet
+    -- get a new URL to crawl
+    url <- withFile defaultURLFile ReadMode hGetLine
     -- crawl the page and collect the links from the page
-    allLinks <- catch (crawlPage url ignoreWordsSet)
-                      (crawlerHandler urlsHandle crawledHandle)
-    -- filter for links which go to other questions,
-    -- and format the links so they can be used
-    let newLinks = formatLinks . filter correctDomain $ allLinks
-    -- remove the URL we just crawled from the URL file,
-    -- and write it to the file of links which have been crawled
-    deleteLine urlsHandle
-    hPutStrLn crawledHandle url
-    -- close the URL file handle
-    hClose urlsHandle
-    -- append all the new URLs to the URL file
-    mapM_ (appendFile defaultURLFile) newLinks
-
--- Helper function for runCrawlPage. Deletes the first line of an open file.
-deleteLine :: Handle -> IO ()
-deleteLine hdl = loop
-  where
-    loop = do
-        char <- hLookAhead hdl
-        hPutChar hdl '\0'
-        unless (char == '\n') loop
+    allLinks <- crawlPage url ignoreWordsSet
+    -- let /q and /questions go through
+    let redundant url = if length url > 10
+        then not . beginsWith url
+        else \_ -> True
+    -- filter for links which go to other questions, filter out links which
+    -- have already been crawled, then format the links so they can be used
+    let newLinks = filter (redundant url)
+                 . filter (flip Set.notMember crawledSet)
+                 . filter correctDomain
+                 $ allLinks
+    -------------
+    -- CLEANUP
+    -------------
+    -- runCrawlPage should fail safely enough if crawlPage (above) raised an
+    -- exception; we simply won't end up removing that URL from the URL file
+    -- or adding the new links to the file for crawling, so the crawler can
+    -- safely resume its operations the next time it is run.
+    -------------
+    -- remove the URL we just crawled from the URL file, close the URL file
+    -- handle, and append all the new URLs to the URL file via appendFile
+    -- ! literal system command to remove first line of urls.txt
+    -- ! urls.txt must be closed during this operation
+    processHandle <- runCommand "tail -n +2 data/urls.txt > data/urls.txt"
+    exitcode <- waitForProcess processHandle
+    withFile defaultURLFile AppendMode $ \hdl ->
+        mapM_ (hPutStrLn hdl) newLinks
+    -- add the URL we just crawled to the crawled file
+    withFile defaultCrawledFile AppendMode $ \hdl ->
+        hPutStrLn hdl url
+    -- ! check for SIGINT
+    unblockSignals fullSignalSet
+    return $ Set.insert url crawledSet
 
 -- Helper function for runCrawler. Checks if a URL goes to the desired
 -- domain (stackoverflow.com/questions). These URLs will all be linked from
@@ -262,9 +263,6 @@ deleteLine hdl = loop
 correctDomain :: String -> Bool
 correctDomain url = beginsWith "/q" url && notDisallowed url
   where
-    beginsWith [] _ = True
-    beginsWith _ [] = False
-    beginsWith (x:xs) (y:ys) = x == y && beginsWith xs ys
     notDisallowed url = not . any (flip beginsWith url) $ disallowed
     -- from stackoverflow.com/robots.txt
     disallowed = ["/questions/*answertab=*"
@@ -272,8 +270,16 @@ correctDomain url = beginsWith "/q" url && notDisallowed url
                  ,"/questions/tagged/*%20*"
                  ,"/questions/*/answer/submit"]
 
+beginsWith :: (Eq a) => [a] -> [a] -> Bool
+beginsWith [] _ = True
+beginsWith _ [] = False
+beginsWith (x:xs) (y:ys) = x == y && beginsWith xs ys
+
 -- Helper function for runCrawlPage. Takes the links which were filtered with
 -- correctDomain and formats them as usable URLs (prepending
 -- "http://stackoverflow.com").
 formatLinks :: [String] -> [String]
-formatLinks = map ("http://stackoverflow.com" ++)
+formatLinks = map formatLink
+
+formatLink :: String -> String
+formatLink = ("http://stackoverflow.com" ++)

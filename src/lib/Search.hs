@@ -41,7 +41,7 @@ runSearch numberOfResults = forever $ do
 {- |
  - searchFor:
  - (1) separate the input into individual search terms
- - (2) retrieve the row results for each search term
+ - (2) retrieve the row results for each search term using getFreqMap
  - (3) remove the search word from the resulting quadruples
  - (4) score each page: (page, freq, views) -> (page, score)
  - (5) aggregate the scores of identical pages into one score
@@ -49,7 +49,7 @@ runSearch numberOfResults = forever $ do
  - (7) return the n highest-scored pages to the user
  -}
 searchFor :: Int -> String -> IO ()
-searchFor n = print . unlines . map (("http://stackoverflow.com" ++) . fst)
+searchFor n = putStrLn . unlines . map (("http://stackoverflow.com" ++) . fst)
             . take n
             . sortBy freqSort
             . aggregate

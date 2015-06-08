@@ -4,8 +4,9 @@ TODO
   * ~~finish `freqSort` algorithm in Search~~
   * ~~finish writing `storeFreqMap`~~
   * ~~limit crawling to single domain~~
-  * make sure crawler never visits same page twice
+  * ~~make sure crawler never visits same page twice~~
   * write test suite
+  * setup: make empty `crawled.txt`, make `urls.txt` with seed URL
   * complete haddock documentation
   * ~~implement word ignore in crawler's processing functions~~
   * ~~make ranking slightly less naive~~
@@ -26,12 +27,15 @@ Run `setupDB.bash` once before doing anything to create the SQLite database.
 
     $ cabal test
 
-Note that `cabal test` will not print out its results if all the tests are
-passing, so instead run with
+I have suppressed warnings from name shadowing and unused bindings. Note that
+`cabal test` will not print out its results if all the tests are passing, so
+instead run with one of the following:
 
     $ cabal test --log=/dev/stdout
+    $ bash runTests.bash
 
-and `cabal` will print out the results of all the tests.
+and `cabal` will print out the results of all the tests. `runTests.bash`
+also colorizes the `cabal test` output for 15% more fun.
 
 ## Modules
 
