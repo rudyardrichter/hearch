@@ -1,7 +1,7 @@
 A primitive search engine written in Haskell.
 
 TODO
-  * fix getViews
+  * ~~fix getViews~~
   * ~~finish `freqSort` algorithm in Search~~
   * ~~finish writing `storeFreqMap`~~
   * ~~limit crawling to single domain~~
@@ -20,16 +20,16 @@ Maybe do
 
 #### Setup
 
-Run `setupDB.bash` once before doing anything to create the SQLite database,
-and unpack the data files in `data.tar.gz`.
+Run
 
-    $ cabal install --only-dependencies --enable tests
-    $ cabal configure --enable-tests
-    $ cabal build
+    $ bash setup.bash
 
-    $ cabal run
+and `setup.bash` will perform the necessary installation steps. This includes
+cabal installation/configuration, so if Hearch is being installed into a
+sandbox then that should be done prior to running `setup.bash`. This script
+should be run only once per installation.
 
-    $ cabal test
+#### Compiling & Testing
 
 Warnings from name shadowing and unused bindings are suppressed. Note that
 `cabal test` will not print out its results if all the tests are passing, so
@@ -41,9 +41,23 @@ instead run with one of the following:
 and `cabal` will print out the results of all the tests. `runTests.bash`
 also colorizes the `cabal test` output for 15% more fun.
 
+#### Crawling
+
+To run the crawler:
+
+    $ hearch --crawl n
+
+where `n` is the number of pages to be crawled. Enter a negative number to
+have Hearch crawl continuously until interrupted.
+
 #### Searching
 
-Searches should be entered in lowercase.
+To run searching:
+
+    $ hearch --search n
+
+where `n` is the number of results to be displayed per search. Searches
+should be entered in lowercase.
 
 ## Modules
 

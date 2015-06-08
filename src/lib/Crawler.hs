@@ -101,9 +101,7 @@ getViews tags = do
     e <- try (readIO views) :: IO (Either IOError Int)
     case e of
         Left _  -> return 1
-        Right r -> do
-            when (r == 1) $ putStrLn "ERROR\n"
-            return r
+        Right r -> return r
   where
     retrieveViews = headDef "1"
                   . headDef []
