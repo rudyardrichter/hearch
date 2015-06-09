@@ -19,7 +19,7 @@ module Search where
 import Database
 
 import Control.Monad
-import Data.List (genericLength, sortBy)
+import Data.List (sortBy)
 import System.Exit
 import System.IO
 
@@ -57,23 +57,23 @@ searchFor n = putStrLn . unlines . map (("http://stackoverflow.com" ++) . fst)
             . take n
             . sortBy pageSort
             . aggregate . concat
-            . map (standardize . aggregate . map scorePage)
-            <=< mapM getFreqMap . words
+            . map (normalize . aggregate . map scorePage)
+            <=< mapM (getFreqMap databaseFile) . words
 
--- | Helper function for runSearch. Standardizes (gets the z-scores of) a
--- list of (page, score) duples. This means that each term of the search
--- gets roughly equal weighting regardless of page hits.
-standardize :: [(String, Double)] -> [(String, Double)]
-standardize list = map (mapSnd zscore) list
+-- | Helper function for runSearch. Normalizes a list of (page, score) duples
+-- by applying feature scaling. This means that each term of the search gets
+-- roughly equal weighting regardless of page hits.
+normalize :: [(String, Double)] -> [(String, Double)]
+normalize list = map (mapSnd scale) list
   where
-    -- bear with me
     mapSnd f (x, y) = (x, f y)
-    zscore x = (x - avg) / std
-    avg = sum snds / len
-    len = genericLength snds
-    std = (/ len) . sqrt . sum . map ((^ (2 :: Int)) . dev) $ snds
-    dev = subtract avg
-    snds = map snd list
+    scale x = if x == xMin
+        then 0.5
+        else (x - xMin) / range
+    range   = xMax - xMin
+    xMax    = maximum snds
+    xMin    = minimum snds
+    snds    = map snd list
 
 -- | Helper function for runSearch. Converts row entries from the database to
 -- a list of (page, score) duples and also drops the word from the results.

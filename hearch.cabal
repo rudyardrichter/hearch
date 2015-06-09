@@ -33,6 +33,7 @@ test-suite test-hearch
                     containers,
                     hspec,
                     hearch,
+                    QuickCheck,
                     tagsoup
   default-language: Haskell2010
 

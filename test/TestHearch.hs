@@ -18,7 +18,7 @@ import Crawler
 import Database
 import Search
 
-import Data.List (sort)
+import Data.List (nub, sort)
 import Text.HTML.TagSoup
 
 import qualified Data.Map as Map (fromList)
@@ -26,6 +26,20 @@ import qualified Data.Map as Map (fromList)
 import qualified Data.Set as Set (member)
 
 import Test.Hspec
+import Test.QuickCheck
+
+-----------------------------------------------------------------------------
+
+-- Globals for use in the tests.
+
+testDBFile :: String
+testDBFile = "data/testWords.db"
+
+testURLFile :: String
+testURLFile = "data/testURLs.db"
+
+testCrawledFile :: String
+testCrawledFile = "data/testCrawled.db"
 
 testPage0 :: String
 testPage0 = "http://stackoverflow.com/questions/1012573/getting-started-with-haskell"
@@ -62,6 +76,8 @@ disallowed = ["/questions/*answertab=*"
 -- from data/ignore.txt; for testing Crawler.readFileToSet
 testIgnore :: [String]
 testIgnore = ["because", "think", "would", "just", "is", "a"]
+
+-----------------------------------------------------------------------------
 
 main :: IO ()
 main = hspec $ describe "Testing Hearch" $ do
@@ -140,31 +156,54 @@ main = hspec $ describe "Testing Hearch" $ do
                            ,"http://stackoverflow.com/potatoes"]
 
     describe "module Database" $ do
+        describe "function storeFreqMap, function getFreqMap" $ do
+            it "should store/get freqMap entries from the table" $ do
+                storeFreqMap testDBFile $
+                    Map.fromList [("this is", ("a test", 10, 4))]
+                let ret = getFreqMap testDBFile "this is"
+                ret `shouldReturn` [("this is", "a test", 10, 4)]
         describe "function joinAssosc" $ do
-            it "should join (a, (x, y, z)) into (a, x, y, z)" $ do
-                joinAssosc ("a", ("b", 3, 4)) `shouldBe` ("a", "b", 3, 4)
+            it "should join (a, (x, y, z)) into (a, x, y, z)" $
+                property $ \(a, (b, c, d)) ->
+                    joinAssosc (a, (b, c, d)) == (a, b, c, d)
+                -- joinAssosc ("a", ("b", 3, 4)) `shouldBe` ("a", "b", 3, 4)
+        describe "function getURL" $ do
+            it "retrieves a URL to crawl from the URL table" $ do
+                getURL testURLFile `shouldReturn` "/questions/1012573/getting-started-with-haskell"
+        describe "function addURL" $ do
+            it "adds a URL to crawl to the URL table" $ do
+                addURL testURLFile "/testing-addURL"
+                getURL testURLFile `shouldReturn` "/testing-addURL"
+        describe "function addCrawledURL" $ do
+            it "adds a URL to the crawled table" $ do
+                addCrawledURL testCrawledFile "/testing-addCrawledURL"
+                let ret = wasNotCrawled testCrawledFile "/testing-addCrawledURL"
+                ret `shouldReturn` False
         describe "function wasNotCrawled" $ do
             it "should return True for links not in the table" $ do
-                wasNotCrawled "/wrongURL" `shouldReturn` True
-            -- ! NOTE that this test will fail until the crawler is run on
-            -- at least the first page (/questions).
+                wasNotCrawled testCrawledFile "/wrongURL" `shouldReturn` True
             it "should return False for links in the table" $ do
-                wasNotCrawled "/questions" `shouldReturn` False
-        describe "function ?" $ do
-            it "should have more tests" $ do
-                pendingWith "TODO"
+                wasNotCrawled testCrawledFile "/test-url" `shouldReturn` False
 
     describe "module Search" $ do
-        -- note that aggregate is allowed to change the order of the
-        -- elements, since searchFor hits the result with
-        -- sortBy freqSort immediately afterwards
+        describe "function normalize" $ do
+            it "should always return values between 0 and 1" $
+                property $ \xs ->
+                    and . map (\(_,x) -> 0 <= x && x <= 1) $ normalize xs
+        -- Note that aggregate is allowed to change the order of the
+        -- elements, since searchFor hits the result with sortBy freqSort
+        -- immediately afterwards. Also note that QuickCheck, in all its
+        -- wonder, has instance Arbitrary [(a, b)].
         describe "function aggregate" $ do
-            it "should do nothing if there are no redundancies" $ do
-                sort (aggregate [("a", 1), ("b", 2), ("c", 3)])
-                `shouldBe` [("a", 1), ("b", 2), ("c", 3)]
+            it "should do nothing if there are no redundancies" $
+                property $ \xs ->
+                    map fst xs == nub (map fst xs)
+                        ==> sort (aggregate xs) == sort xs
             it "should aggregate redundant elements" $ do
                 sort (aggregate [("a", 1), ("a", 10), ("a", 100)])
                 `shouldBe` [("a", 111)]
             it "should combine redundant elements" $ do
                 sort (aggregate [("a", 1), ("b", 2), ("c", 3), ("a", 10), ("b", 20), ("a", 100)])
                 `shouldBe` [("a", 111), ("b", 22), ("c", 3)]
+        -- If anything fails in either scorePage or pageSort then something
+        -- has already gone catastrophically wrong.

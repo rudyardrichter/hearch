@@ -5,7 +5,7 @@ Known bugs
     crawling every question on Stack Overflow
 
 TODO
-  * write test suite
+  * ~~write test suite~~
   * ~~rework `.txt` dependencies in crawler to database usage~~
   * ~~update tarball~~
   * ~~Instead of `urls.txt` and `crawled.txt`, make two more SQLite tables
@@ -19,18 +19,17 @@ TODO
   * ~~implement word ignore in crawler's processing functions~~
   * ~~make ranking slightly less naive~~
 
-Maybe do
+The future
   * write a different version of the crawler which crawls locally around a
     chosen URL (as opposed to randomly, as it is now)
-  * write better test names
   * complete haddock documentation
   * make ranking even less naive
   * implement an `AND` operator for searches
-  * Allow the user to open URLs from the search function
+  * allow the user to open URLs from the search function
 
 ## Usage
 
-#### Setup
+#### Setup & Compiling
 
 Run
 
@@ -39,22 +38,18 @@ Run
 and `setup.bash` will perform the necessary installation steps. This includes
 cabal installation/configuration, so if Hearch is being installed into a
 sandbox then that should be done prior to running `setup.bash`. This script
-should be run only once per installation.
+should be run only once per installation. Warnings from name shadowing and
+unused bindings are suppressed.
 
 #### Compiling & Testing
 
-Warnings from name shadowing and unused bindings are suppressed. Note that
-`cabal test` will not print out its results if all the tests are passing, so
-instead run with one of the following:
+NOTE that `cabal test` will not run correctly, because the testing module
+requires that the test files in `data` be set up correctly. Instead, testing
+MUST be run by
 
-    $ cabal test --log=/dev/stdout
     $ bash runTests.bash
 
-and `cabal` will print out the results of all the tests. `runTests.bash`
-also colorizes the `cabal test` output for 15% more fun.
-
-ALSO NOTE that the crawler must be run on at least the seed URL for all of
-the tests to pass.
+which also colorizes the `cabal test` output for 15% more fun.
 
 #### Crawling
 
@@ -85,8 +80,6 @@ also the seed URL which the crawler begins from. Applicable URLs from
 hard-coded into the crawler.
 
 #### Database.hs
-
-~~Manages the Redis database (using `hedis`).~~
 
 Functions for storing and retrieving word/page-frequency-views entries from the
 SQL database.

@@ -179,7 +179,7 @@ crawlPage url ignoreWords = do
     -- store page into word/page-frequency map
     let freqMap = makeWordFreqMap views url weightedWords
     -- call storeFreqMap from Database to store the result
-    storeFreqMap freqMap
+    storeFreqMap databaseFile freqMap
     return links
 
 -- | The main routine for the crawler, exported to Main. Is essentially a
@@ -208,22 +208,22 @@ runCrawlPage ignoreWordsSet = do
     -- ! block SIGINT until we are done crawling the page
     blockSignals $ addSignal sigINT emptySignalSet
     -- get a new URL to crawl
-    url <- getURL
+    url <- getURL urlsFile
     -- crawl the page and collect the links from the page
     allLinks <- crawlPage url ignoreWordsSet
     putStrLn url
     -- filter for links which go to other questions, filter out links which
     -- have already been crawled, then format the links so they can be used
-    notCrawled <- filterM wasNotCrawled allLinks
+    notCrawled <- filterM (wasNotCrawled crawledFile) allLinks
     let redundant url = not . beginsWith url
     let newLinks = nub
                  . filter (redundant url)
                  . filter correctDomain
                  $ notCrawled
     -- store the newLinks to the URL table
-    addURLs newLinks
+    addURLs urlsFile newLinks
     -- store the URL we just crawled to the crawled table
-    addCrawledURL url
+    addCrawledURL crawledFile url
     -- ! check for SIGINT
     unblockSignals fullSignalSet
     -- all done
