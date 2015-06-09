@@ -32,7 +32,6 @@ import Data.List (nub)
 import Network.HTTP hiding (Connection)
 import System.IO
 import System.Posix.Signals
-import System.Process
 import Text.HTML.TagSoup
 
 import Data.Map (Map)
@@ -46,10 +45,6 @@ import qualified Data.Set as Set
 -- This section contains functions for extracting data from webpages.
 
 type URL = String
-
--- Default filepath for the list of URLs to be crawled.
-defaultURLFile :: FilePath
-defaultURLFile = "data/urls.txt"
 
 -- Default filepath for the list of words to ignore.
 defaultIgnoreFile :: FilePath
@@ -175,10 +170,6 @@ testWordFreq = do
 
 -- This section contains functions for running the crawler.
 
--- Default filepath for the file of URLs which have been crawled already.
-defaultCrawledFile :: String
-defaultCrawledFile = "data/crawled.txt"
-
 -- | Crawl a page and stash the results in the server. The innermost
 -- crawling function (inside runCrawler and runCrawlPage): manages data
 -- extraction from a single page, retrieving the title, the word content,
@@ -209,65 +200,47 @@ runCrawler :: Int -> IO ()
 runCrawler n = do
     -- load the list of ignored words and open the crawled links file
     ignore <- readFileToSet defaultIgnoreFile
-    crawledSet <- readFileToSet defaultCrawledFile
-    putStr "Running the crawler"
+    putStr "Running the crawler.\n"
     hFlush stdout
     if n > 0
-        then void (foldr (<=<) return (crawlPages ignore) crawledSet) >> putStrLn ""
-        else forever $ runCrawlPage ignore crawledSet
+        then doNTimes n (runCrawlPage ignore) >> putStrLn ""
+        else forever $ runCrawlPage ignore
   where
-    crawlPages ignore = replicate n $ runCrawlPage ignore
+    doNTimes :: Int -> IO () -> IO ()
+    doNTimes 0 _      = return ()
+    doNTimes n action = action >> doNTimes (pred n) action
 
 -- | Performs crawling on one page. The intermediary crawling function (is
 -- called by runCrawler, runs crawlPage): manages the file of URLs to crawl,
 -- appends crawled URLs to the crawled file and also adds them to the
 -- crawledSet, which it returns to the next call of runCrawlPage (see above,
 -- in runCrawler).
-runCrawlPage :: Set String -> Set String -> IO (Set String)
-runCrawlPage ignoreWordsSet crawledSet = do
-    putStr "."
+runCrawlPage :: Set String -> IO ()
+runCrawlPage ignoreWordsSet = do
     hFlush stdout
     -- ! block SIGINT until we are done crawling the page
     blockSignals $ addSignal sigINT emptySignalSet
     -- get a new URL to crawl
-    url <- withFile defaultURLFile ReadMode hGetLine
+    url <- getURL
     -- crawl the page and collect the links from the page
     allLinks <- crawlPage url ignoreWordsSet
-    -- let /q and /questions go through
-    let redundant url = if url /= "/questions"
-        then not . beginsWith url
-        else \_ -> True
+    putStrLn url
     -- filter for links which go to other questions, filter out links which
     -- have already been crawled, then format the links so they can be used
+    notCrawled <- filterM wasNotCrawled allLinks
+    let redundant url = not . beginsWith url
     let newLinks = nub
                  . filter (redundant url)
-                 . filter (flip Set.notMember crawledSet)
                  . filter correctDomain
-                 $ allLinks
-    -------------
-    -- CLEANUP
-    -------------
-    -- runCrawlPage should fail safely enough if crawlPage (above) raised an
-    -- exception; we simply won't end up removing that URL from the URL file
-    -- or adding the new links to the file for crawling, so the crawler can
-    -- safely resume its operations the next time it is run.
-    -------------
-    -- remove the URL we just crawled from the URL file, close the URL file
-    -- handle, and append all the new URLs to the URL file via appendFile
-    -- ! literal system command to remove first line of urls.txt
-    -- ! urls.txt must be closed during this operation
-    processHandle <- runCommand tailScript
-    _ <- waitForProcess processHandle
-    withFile defaultURLFile AppendMode $ \hdl ->
-        mapM_ (hPutStrLn hdl) newLinks
-    -- add the URL we just crawled to the crawled file
-    withFile defaultCrawledFile AppendMode $ \hdl ->
-        hPutStrLn hdl url
+                 $ notCrawled
+    -- store the newLinks to the URL table
+    addURLs newLinks
+    -- store the URL we just crawled to the crawled table
+    addCrawledURL url
     -- ! check for SIGINT
     unblockSignals fullSignalSet
-    return $ Set.insert url crawledSet
-  where
-    tailScript = "tail -n +2 data/urls.txt > data/tmp; cp data/tmp data/urls.txt; rm data/tmp"
+    -- all done
+    return ()
 
 -- Helper function for runCrawler. Checks if a URL goes to the desired
 -- domain (stackoverflow.com/questions). These URLs will all be linked from

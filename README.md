@@ -1,7 +1,9 @@
 A primitive search engine written in Haskell.
 
 TODO
-  * update tarball
+  * write test suite
+  * ~~rework `.txt` dependencies in crawler to database usage~~
+  * ~~update tarball~~
   * ~~Instead of `urls.txt` and `crawled.txt`, make two more SQLite tables
     to accommodate the rest of the data~~
   * ~~fix getViews~~
@@ -9,7 +11,6 @@ TODO
   * ~~finish writing `storeFreqMap`~~
   * ~~limit crawling to single domain~~
   * ~~make sure crawler never visits same page twice~~
-  * write test suite
   * ~~setup: extract `data.tar.gz` during setup~~
   * ~~implement word ignore in crawler's processing functions~~
   * ~~make ranking slightly less naive~~

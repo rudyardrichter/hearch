@@ -89,6 +89,11 @@ addURL url = withConnection urlsFile $ \con -> do
     -- we put [url] since execute wants list of parameters
     execute con addURLFormat [url]
 
+-- | Add a list of URLs to the table of URLs to be crawled.
+addURLs :: [String] -> IO ()
+addURLs urls = withConnection urlsFile $ \con -> do
+    mapM_ (execute con addURLFormat . (:[])) urls
+
 -- Format string for the getURL retrieval query. Note that it requires no
 -- additional arguments. Picks a new URL at random (using SQLite's random()).
 getURLFormat :: Query
@@ -136,8 +141,10 @@ wasCrawledFormat = "SELECT EXISTS(SELECT 1 FROM crawled WHERE url = ? LIMIT 1)"
 
 -- | Check if the URL is entered in the crawled table (i.e. has already been
 -- crawled).
-wasCrawled :: String -> IO Bool
-wasCrawled url = withConnection crawledFile $ \con -> do
+wasNotCrawled :: String -> IO Bool
+wasNotCrawled url = withConnection crawledFile $ \con -> do
     -- query also expects a list of paramaters, so we put [url] like above
     row <- (query con wasCrawledFormat (Only url)) :: IO [Only Int]
-    return . (== 1) . fromOnly . head $ row
+    if null row
+        then return True
+        else return . (== 0) . fromOnly . head $ row
