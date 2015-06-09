@@ -53,12 +53,22 @@ runSearch numberOfResults = forever $ do
  - (7) Return the n highest-scored pages to the user
  -}
 searchFor :: Int -> String -> IO ()
-searchFor n = putStrLn . unlines . map (("http://stackoverflow.com" ++) . fst)
-            . take n
-            . sortBy pageSort
+searchFor n = putStrLn . unlines . map printResult
+            . take n . sortBy pageSort
             . aggregate . concat
             . map (normalize . aggregate . map scorePage)
             <=< mapM (getFreqMap databaseFile) . words
+  where
+    printResult (url, score) = "[" ++ pad (show (roundTo 2 score))
+                             ++ "] http://stackoverflow.com"
+                             ++ url
+    roundTo :: Int -> Double -> Double
+    roundTo n = (/ 10.0 ^ n) . fromInteger . round . (* 10 ^ n)
+    pad :: String -> String
+    pad score = case length score of
+        3 -> score ++ "0"
+        4 -> score
+        _ -> "0.01"
 
 -- | Helper function for runSearch. Normalizes a list of (page, score) duples
 -- by applying feature scaling. This means that each term of the search gets
@@ -68,7 +78,7 @@ normalize list = map (mapSnd scale) list
   where
     mapSnd f (x, y) = (x, f y)
     scale x = if x == xMin
-        then 0.5
+        then 0.25
         else (x - xMin) / range
     range   = xMax - xMin
     xMax    = maximum snds
@@ -78,7 +88,7 @@ normalize list = map (mapSnd scale) list
 -- | Helper function for runSearch. Converts row entries from the database to
 -- a list of (page, score) duples and also drops the word from the results.
 scorePage :: (String, String, Int, Int) -> (String, Double)
-scorePage (_, page, freq, views) = (page, freq' * logBase 10.0 views')
+scorePage (_, page, freq, views) = (page, freq' * log views')
   where
     freq'  = fromIntegral freq  :: Double
     views' = fromIntegral views :: Double
