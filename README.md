@@ -20,6 +20,8 @@ TODO
   * ~~make ranking slightly less naive~~
 
 Maybe do
+  * write a different version of the crawler which crawls locally around a
+    chosen URL (as opposed to randomly, as it is now)
   * write better test names
   * complete haddock documentation
   * make ranking even less naive
@@ -51,6 +53,9 @@ instead run with one of the following:
 and `cabal` will print out the results of all the tests. `runTests.bash`
 also colorizes the `cabal test` output for 15% more fun.
 
+ALSO NOTE that the crawler must be run on at least the seed URL for all of
+the tests to pass.
+
 #### Crawling
 
 To run the crawler:
@@ -74,10 +79,8 @@ should be entered in lowercase.
 #### Crawler.hs
 
 The web crawler. It restricts itself to browsing
-[stackoverflow.com/questions](http://stackoverflow.com/questions), and the
-seed URL is
-[http://stackoverflow.com/questions/1012573/getting-started-with-haskell](http://stackoverflow.com/questions/1012573/getting-started-with-haskell).
-Applicable URLs from
+[stackoverflow.com/questions](http://stackoverflow.com/questions), which is
+also the seed URL which the crawler begins from. Applicable URLs from
 [stackoverflow.com/robots.txt](http://stackoverflow.com/robots.txt) are
 hard-coded into the crawler.
 
@@ -94,6 +97,8 @@ Exports `runSearch`, which is the IO loop in which the user may perform
 searches. A search consisting of multiple words is assumed to mean
 
     word1 OR word2 OR ...
+
+though the weight given to each search term is roughly normalized.
 
 ## Data
 

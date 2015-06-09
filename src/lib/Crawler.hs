@@ -58,6 +58,10 @@ readFileToSet = fmap (Set.fromList . lines) . readFile
 httpRequest :: URL -> IO String
 httpRequest = simpleHTTP . getRequest >=> getResponseBody
 
+-- For use in the test module
+tagsRequest :: URL -> IO [Tag String]
+tagsRequest = httpRequest >=> return . parseTags
+
 -- | Extract the sections beginning with a given tag from a tag structure.
 sectionTag :: String             -- ^ the tag to look for
            -> [(String, String)] -- ^ attributes of the tag (as in tagsoup)
@@ -132,13 +136,6 @@ getPage url = do
     views <- getViews tags
     return (views, getTitle tags, getBody tags, getLinks tags)
 
--- for testing
-testPage :: String
-testPage = "http://stackoverflow.com/questions/1012573/getting-started-with-haskell"
-
-testGetPage :: IO Page
-testGetPage = getPage testPage
-
 -- | Given a URL and the list of words on that page, produce a map from the
 -- words to duples containing the URL and the frequency count.
 makeWordFreqMap :: Int       -- ^ the number of views
@@ -157,12 +154,6 @@ makeWordFreqMap = loop Map.empty
             then Map.adjust incrEntry word freqMap
             else Map.insert (map toLower word) (page, 1, views) freqMap
     incrEntry (pg, cnt, views) = (pg, succ cnt, views)
-
--- for testing: should output the word frequencies for the test page
-testWordFreq :: IO (Map String (String, Int, Int))
-testWordFreq = do
-    (views, title, ws, _) <- testGetPage
-    return $ makeWordFreqMap views title ws
 
 -----------------------------------------------------------------------------
 
