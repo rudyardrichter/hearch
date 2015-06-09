@@ -50,15 +50,15 @@ type URL = String
 defaultIgnoreFile :: FilePath
 defaultIgnoreFile = "data/ignore.txt"
 
--- Read a file into a Set structure.
+-- | Read a file into a Set structure.
 readFileToSet :: FilePath -> IO (Set String)
 readFileToSet = fmap (Set.fromList . lines) . readFile
 
--- Request the HTML content of a page.
+-- | Request the HTML content of a page.
 httpRequest :: URL -> IO String
 httpRequest = simpleHTTP . getRequest >=> getResponseBody
 
--- Extract the sections beginning with a given tag from a tag structure.
+-- | Extract the sections beginning with a given tag from a tag structure.
 sectionTag :: String             -- ^ the tag to look for
            -> [(String, String)] -- ^ attributes of the tag (as in tagsoup)
            -> [Tag String]       -- ^ the parsed tagsoup
@@ -66,13 +66,13 @@ sectionTag :: String             -- ^ the tag to look for
                                  -- desired tag
 sectionTag tag attr = sections (~== TagOpen tag attr)
 
--- Get the title of a page.
+-- | Get the title of a page.
 getTitle :: [Tag String] -> String
 getTitle = unwords
          . map (fromTagText . head . filter isTagText)
          . sectionTag "title" []
 
--- Get the text content of a page.
+-- | Get the text content of a page.
 getBody :: [Tag String] -> [String]
 getBody = harvest . sectionTag "p" []
   where
@@ -80,14 +80,14 @@ getBody = harvest . sectionTag "p" []
     getText  = words . fromTagText . head . filter isTagText
     niceText = filter (\c -> isAlpha c || isSpace c)
 
--- Get the list of all links on a page.
+-- | Get the list of all links on a page.
 getLinks :: [Tag String] -> [String]
 getLinks = map getHref . sectionTag "a" []
   where
     getHref = fromAttrib "href" . head . filter isTagOpen
 
--- Extract the number of views from a normally-formatted Stack Overflow page.
--- Works only on this specific format; returns 1 otherwise.
+-- | Extract the number of views from a normally-formatted Stack Overflow page.
+-- Works only on this specific format; returns 2 otherwise.
 -- ! NOTE: this function will return default value for pages that are not
 -- formatted in the Stack Overflow Q&A schema.
 getViews :: [Tag String] -> IO Int
@@ -124,14 +124,13 @@ getViews tags = do
 -- type Page = (Views, Title, Words, Links)
 type Page = (Int, String, [String], [String])
 
--- unified page get function
+-- | Unified page retrieval function.
 getPage :: URL      -- ^ the URL of the page to retrieve
         -> IO Page  -- ^ the Page result
 getPage url = do
     tags <- httpRequest url >>= return . parseTags
     views <- getViews tags
     return (views, getTitle tags, getBody tags, getLinks tags)
-
 
 -- for testing
 testPage :: String
@@ -159,19 +158,18 @@ makeWordFreqMap = loop Map.empty
             else Map.insert (map toLower word) (page, 1, views) freqMap
     incrEntry (pg, cnt, views) = (pg, succ cnt, views)
 
--- for testing:
--- should output the word frequencies for the test page
-testWordFreq :: IO ()
+-- for testing: should output the word frequencies for the test page
+testWordFreq :: IO (Map String (String, Int, Int))
 testWordFreq = do
     (views, title, ws, _) <- testGetPage
-    print $ makeWordFreqMap views title ws
+    return $ makeWordFreqMap views title ws
 
 -----------------------------------------------------------------------------
 
 -- This section contains functions for running the crawler.
 
 -- | Crawl a page and stash the results in the server. The innermost
--- crawling function (inside runCrawler and runCrawlPage): manages data
+-- crawling function (inside runCrawler and runCrawlPage): manages calls
 -- extraction from a single page, retrieving the title, the word content,
 -- the hyperlinks, and the number of views, which it stores in the SQLite
 -- table. It returns the list of links it retrieved.
@@ -211,10 +209,8 @@ runCrawler n = do
     doNTimes n action = action >> doNTimes (pred n) action
 
 -- | Performs crawling on one page. The intermediary crawling function (is
--- called by runCrawler, runs crawlPage): manages the file of URLs to crawl,
--- appends crawled URLs to the crawled file and also adds them to the
--- crawledSet, which it returns to the next call of runCrawlPage (see above,
--- in runCrawler).
+-- called by runCrawler, runs crawlPage). Manages calls to the Database
+-- functions.
 runCrawlPage :: Set String -> IO ()
 runCrawlPage ignoreWordsSet = do
     hFlush stdout
@@ -242,9 +238,10 @@ runCrawlPage ignoreWordsSet = do
     -- all done
     return ()
 
--- Helper function for runCrawler. Checks if a URL goes to the desired
+-- | Helper function for runCrawler. Checks if a URL goes to the desired.
 -- domain (stackoverflow.com/questions). These URLs will all be linked from
--- the current page as beginning with "/questions".
+-- the current page as beginning with "/questions". Also filters for
+-- disallowed URLs (those in stackoverflow.com/robots.txt).
 correctDomain :: String -> Bool
 correctDomain url = beginsWith "/questions" url && notDisallowed url
   where
@@ -255,7 +252,7 @@ correctDomain url = beginsWith "/questions" url && notDisallowed url
                  ,"/questions/tagged/*%20*"
                  ,"/questions/*/answer/submit"]
 
--- Utility function. Checks if a string is a prefix of another string.
+-- | Utility function. Checks if a string is a prefix of another string.
 beginsWith :: (Eq a) => [a] -> [a] -> Bool
 beginsWith [] _ = True
 beginsWith _ [] = False

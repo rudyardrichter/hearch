@@ -30,6 +30,7 @@ test-suite test-hearch
   main-is:          TestHearch.hs
   type:             exitcode-stdio-1.0
   build-depends:    base >= 4.7 && < 4.8,
+                    containers,
                     hspec,
                     hearch,
                     tagsoup

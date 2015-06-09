@@ -19,7 +19,7 @@ module Search where
 import Database
 
 import Control.Monad
-import Data.List (sortBy)
+import Data.List (genericLength, sortBy)
 import System.Exit
 import System.IO
 
@@ -40,24 +40,42 @@ runSearch numberOfResults = forever $ do
 
 {- |
  - searchFor:
- - (1) separate the input into individual search terms
- - (2) retrieve the row results for each search term using getFreqMap
- - (3) remove the search word from the resulting quadruples
- - (4) score each page: (page, freq, views) -> (page, score)
- - (5) aggregate the scores of identical pages into one score
- - (6) sort the pages by score in descending order
- - (7) return the n highest-scored pages to the user
+ - (1) Separate the input into individual search terms
+ - (2) Retrieve the row results for each search term using getFreqMap
+ - (3) For each individual search term:
+ -     (A) Apply scorePage to all entries
+ -     (B) Aggregate the scores of identical page entries
+ -     (C) Standardize the scores
+ - (4) Combine the standardized results of all terms into a single list
+ -     with concat
+ - (5) Aggregate the page scores for the unified collection of search terms
+ - (6) Sort the pages by score in descending order
+ - (7) Return the n highest-scored pages to the user
  -}
 searchFor :: Int -> String -> IO ()
 searchFor n = putStrLn . unlines . map (("http://stackoverflow.com" ++) . fst)
             . take n
-            . sortBy freqSort
-            . aggregate
-            . map scorePage
-            . concat
+            . sortBy pageSort
+            . aggregate . concat
+            . map (standardize . aggregate . map scorePage)
             <=< mapM getFreqMap . words
 
--- Helper function for runSearch. Converts row entries from the database to
+-- | Helper function for runSearch. Standardizes (gets the z-scores of) a
+-- list of (page, score) duples. This means that each term of the search
+-- gets roughly equal weighting regardless of page hits.
+standardize :: [(String, Double)] -> [(String, Double)]
+standardize list = map (mapSnd zscore) list
+  where
+    -- bear with me
+    mapSnd f (x, y) = (x, f y)
+    zscore x = (x - avg) / std
+    avg = sum snds / len
+    len = genericLength snds
+    std = (/ len) . sqrt . sum . map ((^ (2 :: Int)) . dev) $ snds
+    dev = subtract avg
+    snds = map snd list
+
+-- | Helper function for runSearch. Converts row entries from the database to
 -- a list of (page, score) duples and also drops the word from the results.
 scorePage :: (String, String, Int, Int) -> (String, Double)
 scorePage (_, page, freq, views) = (page, freq' * logBase 10.0 views')
@@ -65,7 +83,8 @@ scorePage (_, page, freq, views) = (page, freq' * logBase 10.0 views')
     freq'  = fromIntegral freq  :: Double
     views' = fromIntegral views :: Double
 
--- Combine page entries.
+-- | Helper function for runSearch. In a list of (page, score) entries,
+-- it merges entries with the same page and adds their scores together.
 aggregate :: [(String, Double)] -> [(String, Double)]
 aggregate = loop []
   where
@@ -82,10 +101,10 @@ aggregate = loop []
 
 -- Helper function for runSearch. Sorts aggregated (page, score) duples in
 -- descending order.
-freqSort :: (Ord b)
+pageSort :: (Ord b)
          => (a, b) -- (page, score)
          -> (a, b) -- (page, score)
          -> Ordering
-freqSort (_, s1) (_, s2) = compare s2 s1
+pageSort (_, s1) (_, s2) = compare s2 s1
 -- (note that the order of pairs in the output is reversed because we want
 -- the highest-ranked searches to come first.)

@@ -1,5 +1,9 @@
 A primitive search engine written in Haskell.
 
+Known bugs
+  * Crashes with `Exception: Prelude.head: empty list` when it finishes
+    crawling every question on Stack Overflow
+
 TODO
   * write test suite
   * ~~rework `.txt` dependencies in crawler to database usage~~
@@ -16,6 +20,7 @@ TODO
   * ~~make ranking slightly less naive~~
 
 Maybe do
+  * write better test names
   * complete haddock documentation
   * make ranking even less naive
   * implement an `AND` operator for searches

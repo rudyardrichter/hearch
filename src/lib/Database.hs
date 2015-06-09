@@ -23,10 +23,12 @@ import Control.Monad
 import Data.Map (Map)
 import qualified Data.Map as Map
 
+-----------------------------------------------------------------------------
+
+-- Functions for storing entries in the database.
+
 databaseFile :: String
 databaseFile = "data/words.db"
-
------------------------------------------------------------------------------
 
 -- Format string for the storeFreqMap query.
 storeQueryFormat :: Query
@@ -49,7 +51,9 @@ joinAssosc (a, (b, c, d)) = (a, b, c, d)
 
 -----------------------------------------------------------------------------
 
--- The structure of the FromRow result which will be extracted from the table.
+-- getFreqMap: retrieve an entry from the database.
+
+-- | The structure of the FromRow result which will be extracted from the table.
 -- type GetEntry = (word, page, frequency, views)
 type GetEntry = (String, String, Int, Int)
 
@@ -76,6 +80,7 @@ getFreqMap word = do
 urlsFile :: String
 urlsFile = "data/urls.db"
 
+-- | The type of a URL retrieval from the table.
 type GetURL = Only String
 
 -- Format string for adding a URL to the URL table. Requires one additional
